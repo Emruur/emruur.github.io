@@ -51,25 +51,25 @@ body{
     background-image: linear-gradient(
         rgba(0, 0, 0, 0), 
         rgba(0, 50, 100, 0.6)
-      ), url("assets/tree.png");
+      ), url("assets/tree.jpg");
 }
 .gen-art{
     background-image: linear-gradient(
         rgba(0, 0, 0, 0), 
         rgba(0, 50, 100, 0.6)
-      ), url("assets/GenArt.png");
+      ), url("assets/GenArt.jpg");
 }
 .cloth{
     background-image: linear-gradient(
         rgba(0, 0, 0, 0), 
         rgba(0, 50, 100, 0.6)
-      ), url("assets/cloth.png");
+      ), url("assets/cloth.jpg");
 }
 .bubbles{
     background-image: linear-gradient(
         rgba(0, 0, 0, 0), 
         rgba(0, 50, 100, 0.6)
-      ), url("assets/bubbles.png");
+      ), url("assets/bubbles.jpg");
 }
 .band{
     background-image: linear-gradient(
