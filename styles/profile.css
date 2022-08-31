@@ -1,0 +1,77 @@
+.profile-avatar{
+    width: min(500px, 85%);
+    aspect-ratio: 1;
+    border-radius: 100%;
+    background-image: url("../assets/profile-avatart.jpg");
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.profile-info{
+    margin: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.greeting{
+    font-size: xx-large;
+}
+
+span{
+    color: rgb(241, 72, 72);
+    font-weight: bolder;
+    
+}
+
+.about-me{
+    max-width: 43rem;
+    text-align: justify;
+}
+
+.experience-card{
+    height: 10rem;
+    width: 10rem;
+
+    margin-right: 3rem;
+    display: inline-block;
+    border-radius: 1rem;
+    background-position: center;
+    background-size: cover;
+}
+
+.experience-container{
+    width: min(43rem, 95%);
+    overflow-x: auto;
+    white-space: nowrap;
+    margin-inline:2rem;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+
+}
+
+::-webkit-scrollbar{
+    height: 6px;
+    width: 6px;
+
+}
+::-webkit-scrollbar-thumb:horizontal{
+    background: rgb(242,72,72);
+    border-radius: 10px;
+}
+
+.TED{
+    background-image: url("../assets/ted.jpeg");
+}
+
+.Bilkent{
+    background-image: url("../assets/bilkent.jpeg");
+}
+
+.Karel{
+    background-image: url("../assets/karel.webp");
+}
+
+.Sadeceon{
+    background-image: url("../assets/sadeceon.png");
+}

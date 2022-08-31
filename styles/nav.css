@@ -1,0 +1,44 @@
+nav{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+.nav-container{
+    width: min(95%, 22rem);
+    padding: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+
+}
+
+.nav-item{
+
+    font-size: 1.2rem;
+    transition-duration: 100ms;
+    font-weight: 800;
+}
+
+.current{
+    text-decoration: underline;
+    text-underline-offset: 0.5rem;
+    text-decoration-thickness: 2px;
+}
+
+body{
+    background-color: rgb(27, 26, 56);
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+}
+a{
+    color: whitesmoke;
+    text-decoration: none;
+}
+
+h1, h2, h3{
+    color: whitesmoke;
+}
+
+
