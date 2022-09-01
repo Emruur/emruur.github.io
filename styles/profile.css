@@ -18,7 +18,7 @@
     font-size: xx-large;
 }
 
-span{
+.name{
     color: rgb(241, 72, 72);
     font-weight: bolder;
     
@@ -30,14 +30,15 @@ span{
 }
 
 .experience-card{
-    height: 10rem;
-    width: 10rem;
+    height: 12rem;
+    width: 12rem;
 
     margin-right: 3rem;
     display: inline-block;
     border-radius: 1rem;
     background-position: center;
     background-size: cover;
+    position: relative;
 }
 
 .experience-container{
@@ -61,17 +62,65 @@ span{
 }
 
 .TED{
-    background-image: url("../assets/ted.jpeg");
+    background-image: linear-gradient(
+        rgba(0, 0, 0, 0), 
+        rgba(50, 50, 100, 0.9)
+      ),url("../assets/ted.jpeg");
 }
 
 .Bilkent{
-    background-image: url("../assets/bilkent.jpeg");
+    background-image:linear-gradient(
+        rgba(0, 0, 0, 0), 
+        rgba(50, 50, 100, 0.9)
+      ), url("../assets/bilkent.jpeg");
 }
 
 .Karel{
-    background-image: url("../assets/karel.webp");
+    background-image:linear-gradient(
+        rgba(0, 0, 0, 0), 
+        rgba(50, 50, 100, 0.9)
+      ), url("../assets/karel.webp");
 }
 
 .Sadeceon{
-    background-image: url("../assets/sadeceon.png");
+    background-image:linear-gradient(
+        rgba(0, 0, 0, 0), 
+        rgba(50, 50, 100, 0.9)
+      ), url("../assets/sadeceon.png");
+}
+
+.experience-info
+{
+
+    color: whitesmoke;
+    position: absolute;
+    bottom: 0.2rem;
+    left: 0.3rem;
+    font-size: medium;
+    margin: 0;
+}
+
+.animate{
+    animation: typewriter 4s steps(40) 1s 1 normal both,
+    blinkTextCursor 500ms steps(40) infinite normal;
+
+    white-space: nowrap;
+}
+
+@keyframes typewriter{
+    from{
+        width:0;
+    }
+    to{
+        width: 10em
+    }
+}
+
+@keyframes blinkTextCursor {
+    from{
+        border-right-color: whitesmoke;
+    }
+    to{
+        border-right-color: transparent;
+    }
 }
