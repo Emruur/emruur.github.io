@@ -64,10 +64,11 @@
         rgba(50, 50, 100, 0.7)
       ), url("../assets/bubbles.jpg");
 }
-.band{
+
+.field{
     background-image: linear-gradient(
         rgba(0, 0, 0, 0), 
         rgba(50, 50, 100, 0.7)
-      ), url("../assets/band.jpg");
+      ), url("../assets/field.png");
 }
 
