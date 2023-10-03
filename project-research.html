@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>research.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="speech-emotion-recognition">Speech Emotion Recognition</h1>
+<p>Identifying certain emotions from a speech file</p>
+<h1 id="table-of-contents">Table of Contents</h1>
+<ol>
+<li><a href="#audio-features">Audio Features</a></li>
+<li><a href="#available-datasets">Available Datasets</a></li>
+<li><a href="#projects">Projects</a></li>
+<li><a href="#research">Research</a></li>
+</ol>
+<h2 id="audio-features"><a href="https://medium.com/heuristics/audio-signal-feature-extraction-and-clustering-935319d2225">Audio Features</a></h2>
+<p>Audio features are characteristics or properties of an audio signal that can be extracted for analysis, interpretation, and understanding of the signal</p>
+<ol>
+<li>
+<p><strong>(Prosodic Features)</strong>: These are features that are not tied to individual phonetic segments like vowels and consonants, but instead to larger units of speech such as syllables, words, phrases, and sentences². Prosodic features include pitch (fundamental frequency), loudness (energy), duration, and voice quality². They can express emotional states, sentence types (statement, question, command), presence of irony or sarcasm, emphasis, contrast, and focus².</p>
+</li>
+<li>
+<p><strong>(Qualitative Features)</strong>: These are features that describe the quality or characteristics of the speech signal. They can include various prosodic and spectral features.</p>
+</li>
+<li>
+<p><strong>(Spectral Features)</strong>: These are features that provide information about the distribution of energy in different frequency bands of the speech signal. Traditional linear spectral features include Linear Predictor Coefficient (LPC) and Log Frequency Power Coefficient (LFPC)¹. Cepstral features, which are a type of spectral feature, include Mel Frequency Cepstral Coefficient (MFCC) and Linear Predictive Cepstral Coefficients (LPCC)¹.</p>
+</li>
+<li>
+<p><strong>(Teager Energy Operator)</strong>: This is a nonlinear operator used to estimate the energy of a signal¹. It can provide useful information about the non-linear air flow structure in speech production¹. Teager Energy Operator-based features can be used to detect stress in speech¹.</p>
+</li>
+</ol>
+<ul>
+<li>Zero Crossing Rate : The rate of sign-changes of the signal during the duration of a particular frame.</li>
+<li>Energy : The sum of squares of the signal values, normalized by the respective frame length.</li>
+<li>Entropy of Energy : The entropy of sub-frames’ normalized energies. It can be interpreted as a measure of abrupt changes.</li>
+<li>Spectral Centroid : The center of gravity of the spectrum.</li>
+<li>Spectral Spread : The second central moment of the spectrum.</li>
+<li>Spectral Entropy : Entropy of the normalized spectral energies for a set of sub-frames.</li>
+<li>Spectral Flux : The squared difference between the normalized magnitudes of the spectra of the two successive frames.</li>
+<li>Spectral Rolloff : The frequency below which 90% of the magnitude distribution of the spectrum is concentrated.</li>
+<li>MFCCs Mel Frequency Cepstral Coefficients form a cepstral representation where the frequency bands are not linear but distributed according to the mel-scale.</li>
+<li>Chroma Vector : A 12-element representation of the spectral energy where the bins represent the 12 equal-tempered pitch classes of western-type music (semitone spacing).</li>
+<li>Chroma Deviation : The standard deviation of the 12 chroma coefficients.</li>
+</ul>
+<p><a href="https://medium.com/heuristics/audio-signal-feature-extraction-and-clustering-935319d2225">Audio Signal Feature Extraction and Clustering</a></p>
+<h2 id="available-datasets">Available Datasets</h2>
+<ol>
+<li>
+<p><a href="https://github.com/CheyneyComputerScience/CREMA-D">CREMA-D</a>: This dataset contains 7,442 original clips from 91 actors. These clips were from 48 male and 43 female actors between the ages of 20 and 74 coming from a variety of races and ethnicities (African America, Asian, Caucasian, Hispanic, and Unspecified). Actors spoke from a selection of 12 sentences.</p>
+</li>
+<li>
+<p><a href="http://kahlan.eps.surrey.ac.uk/savee/">SAVEE</a>: The Surrey Audio-Visual Expressed Emotion (SAVEE) dataset is an emotion recognition dataset. It consists of recordings from 4 male actors in 7 different emotions, totaling 480 British English utterances. The sentences were chosen from the standard TIMIT corpus and phonetically-balanced for each emotion.</p>
+</li>
+<li>
+<p><a href="https://www.kaggle.com/datasets/ejlok1/toronto-emotional-speech-set-tess">TESS</a>: The Toronto Emotional Speech Set (TESS) is a dataset for training emotion classification in audio. It contains audio clips of 2 women expressing 7 different emotions (anger, disgust, fear, happiness, pleasant surprise, sadness, and neutral).</p>
+</li>
+<li>
+<p><a href="https://www.kaggle.com/datasets/uwrfkaggler/ravdess-emotional-speech-audio">Ravee</a>: This dataset is voiced by professional actors and is used for speech emotion recognition.</p>
+</li>
+<li>
+<p><a href="http://emodb.bilderbar.info/start.html">Berlin Database of Emotional Speech (Berlin Emo-DB)</a>: This dataset is in German and was created in 2005. It contains 800 recordings of 10 sentences spoken by 10 actors (5 male and 5 female) expressing 7 emotions: anger, neutral, fear, boredom, happiness, sadness, and disgust.</p>
+</li>
+<li>
+<p><a href="https://www.kaggle.com/c/emotiw2018/overview">Acted Facial Expression in the Wild (AFEW5.0)</a>: This English database from 2015 has restricted access. It contains 1645 recordings expressed by 3 commentators expressing 7 emotions: anger, joy, sadness, disgust, surprise, fear and neutral.</p>
+</li>
+<li>
+<p><a href="http://www.baumhaus.com.tr/BAUM1s.html">BAUM-1s</a>: This Turkish database from 2013 has restricted access. It contains 1184 clips averaging 1.82 seconds each from 31 people (17 female). The native language of the subjects is Turkish and their age range is between 19-65 years. The database includes recordings reflecting several mental states in addition to six basic emotions: happiness, anger, sadness, disgust, fear, surprise.</p>
+</li>
+<li>
+<p><a href="https://sail.usc.edu/iemocap/">Interactive Emotional Dyadic Motion Capture (IEMOCAP)</a>: This English database from 2008 has restricted access. It contains a total of 12 hours of multimodal data recorded from 10 actors (5 male and 5 female) expressing five emotions: happiness, anger, sadness, disappointment and neutral.</p>
+</li>
+<li>
+<p><a href="http://www.enterface.net/results/final_results.html">The eNTERFACE’05 Audio-Visual Emotion Database (eNTERFACE)</a>: This English database from 2005 is open access. It contains a total of 1166 video recordings (264 female +902 male) from 42 subjects (81% male +19% female) expressing six emotions: anger, fear, surprise, happiness, sadness and disgust.</p>
+</li>
+<li>
+<p><a href="http://www.lrec-conf.org/proceedings/lrec2008/pdf/67_paper.pdf">Chinese Emotional Speech Corpus (CASIA)</a>: This Mandarin database from 2008 requires paid access. It contains a total of 1500 emotional expressions for each person from four people expressing five emotions: anger, happiness, surprise, neutral ,sad.</p>
+</li>
+<li>
+<p><a href="https://www.affective-sciences.org/home/research/materials-and-online-research/research-material/">Geneva Multimodal Emotion Portrayal (GEMEP)</a>: This French database from 2006 has restricted access. It contains a total of 1260 recordings from ten professional actors (5 male +5 female) expressing twelve emotions: positive emotions: joy,
+funny,
+pride,
+pleasure,
+relaxation,
+interest.
+Negative
+emotions: anger,
+panic,
+despair,
+tension
+(irritation),
+anxiety,
+sadness.
+Six additional
+emotions: Positive:
+Admiration,
+Sensitivity,
+Surprise Negative:
+Disgust,
+Humiliation,
+Shame.</p>
+</li>
+<li>
+<p><a href="https://zenodo.org/record/1188976#.YV9xZ2jYrrc">Ryerson Multimedia Lab (RML) Emotion Database</a>: This multilingual database was created in multiple years and contains a total of 500 video recordings from six different languages spoken by eight subjects expressing six emotions: happy , sad , angry , scared , surprised and disgusted.</p>
+</li>
+<li>
+<p><a href="https://sites.google.com/view/emotionurdu/home">Urdu</a>: This Urdu database from 2018 is open access. It contains a total of four hundred expressions from thirty-eight people (27 men +11 women) obtained from TV Shows expressing four emotions: angry , happy , sad and neutral.</p>
+</li>
+<li>
+<p><a href="http://www.emovo.it/">EMOVO</a>: This Italian database from 2014 is open access. It contains a total of five hundred eighty-eight sound recordings of fourteen sentences for each emotion spoken by six actors (3 male +3 female) expressing seven emotions: disgust, fear, anger, joy, surprise, sadness, and neutral.</p>
+</li>
+</ol>
+<h2 id="projects">Projects</h2>
+<ul>
+<li>
+<ol>
+<li>
+<h3 id="speech-emotion-recognition-using-python"><a href="https://www.hackersrealm.net/post/speech-emotion-recognition-using-python">Speech Emotion Recognition using Python</a></h3>
+</li>
+</ol>
+<p>Classification using TESS.</p>
+<ul>
+<li>
+<p>Used MFCC's as the audio feature</p>
+</li>
+<li>
+<p><strong>Accuracy Plot:</strong></p>
+</li>
+<li>
+<p><img src="https://static.wixstatic.com/media/3b7e0c_a7e85f30c2794d1f8a2c12521c673ea6~mv2.png" alt="accuracy plot"></p>
+</li>
+<li>
+<p><strong>Loss Plot</strong></p>
+</li>
+<li>
+<p><img src="https://static.wixstatic.com/media/3b7e0c_35f601a2a95c470d86eaf11907bfcee1~mv2.png" alt="Loss Plot"></p>
+</li>
+</ul>
+</li>
+<li>
+<ol start="2">
+<li>
+<h3 id="speech-emotion-recognition"><a href="https://www.kaggle.com/code/shivamburnwal/speech-emotion-recognition">Speech Emotion Recognition</a></h3>
+</li>
+</ol>
+<p>Speech Emotion Recognition, abbreviated as SER, is the act of attempting to recognize human emotion and affective states from speech. This is capitalizing on the fact that voice often reflects underlying emotion through tone and pitch. This is also the phenomenon that animals like dogs and horses employ to be able to understand human emotion.</p>
+<ol>
+<li>
+<p>Emotion recognition is the part of speech recognition which is gaining more popularity and need for it increases enormously. Although there are methods to recognize emotion using machine learning techniques, this project attempts to use deep learning to recognize the emotions from data.</p>
+</li>
+<li>
+<p>SER(Speech Emotion Recognition) is used in call center for classifying calls according to emotions and can be used as the performance parameter for conversational analysis thus identifying the unsatisfied customer, customer satisfaction and so on.. for helping companies improving their services</p>
+</li>
+<li>
+<p>It can also be used in-car board system based on information of the mental state of the driver can be provided to the system to initiate his/her safety preventing accidents to happen</p>
+</li>
+</ol>
+<p><strong>Used Features</strong>:</p>
+<ul>
+<li>
+<p>Zero Crossing Rate</p>
+</li>
+<li>
+<p>Chroma_stft</p>
+</li>
+<li>
+<p>MFCC</p>
+</li>
+<li>
+<p>RMS(root mean square) value</p>
+</li>
+<li>
+<p>MelSpectogram to train our model.</p>
+</li>
+<li>
+<p><img src="https://www.kaggleusercontent.com/kf/34958802/eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..Q5yGhq9zS5nEyqzhtk2Yug.u9j-2h4xWEmIW5--2T3ggs2RDsISOXo5TwcIR1_VNNQX1cW4zyHIT1lGStJHqoMah-zSHrx32pUepocKSEOXVWRQHLgHd3CoJ86BTU--6LuAybP1bnXaHQWCL01tqQjy7S9JREvvATcWBRKClF6SOk_uYaU495yASxoGSUIKrznMexlRuuHwEYK_bdYM7iIDXpoiamiYoT3PKHIfI2FWCilsxzFJIBLkKfqywahrxg81OT86_44fqTH1xcPi57wORSLJz4h6ix7Zox8T2HYeI7M1WeMnZmLDIEuD8LadJCbgHoom6WLx8Jrn4e1PwM4FaM7_ECmp7OPZFRzin3_utnljLRQLOU_3v0pbOU0KrMaVnV8EXCFcsmiGNXSaZQcgzk5nnEjuEhP50D7E-RLWUszQ-0dy0rvWzee5MTWvZMW5GX3FSZeS-4Wh8tf4NDUNzrYaQZacbkNHzIqGRKNdcNfo2mSblk5h-Di6Q8EDnfhzQbbYf6C2vy5cfY6LD7D-RbX9h_KQSw3qbSpnO11mQsn2TF6oDE2HgZKgPxi3508OjIXoNMh__qtAf-gBrD8cPY7SpFCMHxj98Oe78QDPpJCYUTAodcnkKoZKHln98fops_OeJFKUmpOwXwTk7Koy4J3pPp1BEa6_8Sf93ZTBvv8Gc1Q1AJswoIvyOUxZjpk.WbCIizvYUsfBATonk-1Giw/__results___files/__results___53_1.png" alt="Plots"></p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="research">Research</h2>
+<ul>
+<li>
+<h3 id="a-literature-review-on-speech-emotion-recognition-using-deep-learningtechniques"><a href="https://dergipark.org.tr/tr/download/article-file/2408549">A Literature Review on Speech Emotion Recognition Using Deep LearningTechniques</a></h3>
+<p>This study includes the results of a literature research prepared by considering speech emotion
+recognition (SER) applications (we reviewed studies published between 2019 and 2021) in which
+deep learning methods are used. With the inclusion of deep learning applications in many research
+areas, the popularity it has gained has also been reflected in SER systems and has been the source
+of motivation for this literature research study.</p>
+</li>
+<li>
+<h3 id="speech-emotion-recognition-through-hybrid-features-and-convolutional-neural-network"><a href="https://www.mdpi.com/2076-3417/13/8/4750">Speech Emotion Recognition through Hybrid Features and Convolutional Neural Network</a></h3>
+<p>Speech emotion recognition (SER) is the process of predicting human emotions from audio signals using artificial intelligence (AI) techniques. SER technologies have a wide range of applications in areas such as psychology, medicine, education, and entertainment. Extracting relevant features from audio signals is a crucial task in the SER process to correctly identify emotions. Several studies on SER have employed short-time features such as Mel frequency cepstral coefficients (MFCCs), due to their efficiency in capturing the periodic nature of audio signals. However, these features are limited in their ability to correctly identify emotion representations. To solve this issue, this research combined MFCCs and time-domain features (MFCCT) to enhance the performance of SER systems. The proposed hybrid features were given to a convolutional neural network (CNN) to build the SER model. The hybrid MFCCT features together with CNN outperformed both MFCCs and time-domain (t-domain) features on the Emo-DB, SAVEE, and RAVDESS datasets by achieving an accuracy of 97%, 93%, and 92% respectively. Additionally, CNN achieved better performance compared to the machine learning (ML) classifiers that were recently used in SER. The proposed features have the potential to be widely utilized to several types of SER datasets for identifying emotions.</p>
+</li>
+</ul>
+<h2 id="ways-of-imprevement">Ways of imprevement</h2>
+<ul>
+<li><strong>Analyzing which feature(s) fit the problem better</strong></li>
+<li><strong>A Phonetic Approach Maybe</strong></li>
+</ul>
+
+</body>
+</html>
