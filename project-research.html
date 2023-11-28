@@ -373,6 +373,7 @@ code {
 <li><a href="#available-datasets">Available Datasets</a></li>
 <li><a href="#projects">Projects</a></li>
 <li><a href="#research">Research</a></li>
+<li><a href="#Flow">VideoAudio Process Flow</a></li>
 </ol>
 <h2 id="audio-features"><a href="https://medium.com/heuristics/audio-signal-feature-extraction-and-clustering-935319d2225">Audio Features</a></h2>
 <p>Audio features are characteristics or properties of an audio signal that can be extracted for analysis, interpretation, and understanding of the signal</p>
@@ -557,6 +558,165 @@ of motivation for this literature research study.</p>
 <ul>
 <li><strong>Analyzing which feature(s) fit the problem better</strong></li>
 <li><strong>A Phonetic Approach Maybe</strong></li>
+</ul>
+<h1 id="flow">Flow</h1>
+<pre><code class="language-mermaid"><div class="mermaid">graph TD;
+    Video+Text-->i1{transcribe to text};
+    
+</div></code></pre>
+<h1 id="application">Application</h1>
+<h2 id="class-diagram">Class Diagram</h2>
+<hr>
+<h2 id="title-class-diagram">title: Class Diagram</h2>
+<pre><code class="language-mermaid"><div class="mermaid">classDiagram
+    User <|-- Candidate
+    User <|-- Recruiter
+    User <|-- Admin
+
+    Company "*" o-- "*" Recruiter
+
+    Recruiter "1" -- "*"Interview
+
+    Interview "1" *-- "1" InterviewAnalysis
+
+    Company "1" o-- "*" Address
+    
+    User "*" o-- "1" Address
+
+    Candidate "1" *-- "*" ProfilePicture
+
+    InterviewGuide "1" --o "*" Interview
+    InterviewGuide "*" --o "1" Company
+
+    InterviewAnalysis "1" *-- "1" CharacterReport
+    InterviewAnalysis "1" *-- "1" LanguageReport
+
+    Interview "*" o-- "1" Candidate
+
+    Job "1"--o "*" Interview
+    Company "*" o-- "1" Job
+
+    InterviewGuide "1" *-- "*"Question
+
+    class Address{
+        - String City
+        - String Country
+        - String state
+        - String Adress
+        - Int postalCode
+        - String name
+    }
+
+    class Question{
+        - String question 
+        - List <String, Int> answer
+    }
+    class Job{
+        - String code
+        - String name
+    }
+    class User{
+        #String email 
+        #String name
+        #String LinkedIn Profile
+    }
+    class Candidate{
+        - String instutuion
+        - String education
+    }
+    class Recruiter{
+
+    }
+    class ProfilePicture{
+    }
+
+    class Admin{
+
+    }
+
+    class Company{
+        -String address
+        -String name
+        -String description
+    }
+
+    class Interview{
+        -String url
+        -Enum status
+    }
+    class InterviewGuide{
+        -List~String~ questions
+        -String guide
+    }
+    class InterviewAnalysis{
+        -String interviewInText
+    }
+
+    class CharacterReport{
+        -Int agreeability
+        -Int professionality
+        -Int depressed
+        -Int boring
+    }
+    class LanguageReport{
+        -String aimedLevel
+        -String analyzedLevel
+        -Enum status
+    }
+</div></code></pre>
+<h1 id="contextual-analysis">Contextual Analysis</h1>
+<h2 id="1-transforming-speech-into-text">1. Transforming speech into text</h2>
+<ul>
+<li>Google cloud API
+<ul>
+<li>❌ Paid, cloud based</li>
+<li>✅ easy</li>
+</ul>
+</li>
+<li>OpenAI Whisper ✅
+<ul>
+<li>✅ High Accuracy</li>
+<li>✅ Run Locally</li>
+<li>❌ System reguirements, high</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-language-profieciency-cefr">2. Language Profieciency (CEFR)</h2>
+<ul>
+<li>
+<p>TextInspector(textinspector.com)</p>
+<ul>
+<li>Accuracy: ? probably good ✅</li>
+<li>PAID(360dollar/year)❌</li>
+<li>Cloud ❌</li>
+</ul>
+</li>
+<li>
+<p>Classifier Python</p>
+<ul>
+<li>Vocabulary Based</li>
+<li>Run locally ✅</li>
+<li>Accuracy? Probably low❌</li>
+</ul>
+</li>
+<li>
+<h3 id="contour-based-rnn">Contour Based RNN</h3>
+<ul>
+<li>https://aclanthology.org/2021.bea-1.21.pdf</li>
+<li>DATASET
+<ol>
+<li>CLC-FCE</li>
+<li>TOEFL11</li>
+<li>MERLIN</li>
+<li>EFCAMDAT ✅
+<ul>
+<li>cambridge L2 database</li>
+</ul>
+</li>
+</ol>
+</li>
+</ul>
+</li>
 </ul>
 
 </body>
