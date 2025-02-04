@@ -81,6 +81,12 @@
         rgba(50, 50, 100, 0.9)
       ), url("../assets/karel.webp");
 }
+.Leiden{
+    background-image:linear-gradient(
+        rgba(0, 0, 0, 0), 
+        rgba(50, 50, 100, 0.9)
+      ), url("../assets/leiden.jpeg");
+}
 
 .QITASC{
     background-image:linear-gradient(
