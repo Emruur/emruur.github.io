@@ -486,11 +486,13 @@
      column. Tighter tracking still buys PHOTOGRAPHY back a few characters. The frame loses its right-hand
      pair: the vine is standing where they were. */
   @media (max-width: 600px) {
-    /* held a little off the edge. Only a little: the vine's own grid already
-       carries ~30px of empty cells right of its outermost leaves, so 8px
-       here reads as air, and every px given to it comes out of the gap
-       between PHOTOGRAPHY and the left of the vine */
-    body { place-items: start end; padding-right: 8px; }
+    /* pushed slightly PAST the edge. The vine's own grid carries ~30px of
+       empty cells right of its outermost leaves, so the box can overhang the
+       window by 8px (body is overflow:hidden) and still leave ~25px of black
+       past the leaves -- and every px moved right comes back as room between
+       the words and the left of the vine */
+    body { place-items: start end; }
+    #stack { margin-right: -8px; }
     /* 29px from ~390 up; under that it gives way with the window, so
        PHOTOGRAPHY, the widest word, still ends short of the leaves at 360 */
     #gaze { --ls: .08em; font-size: min(29px, 7.4vw); }
@@ -515,6 +517,14 @@
        is only haze. */
     #corners .tl { font-size: 20px; }
     #corners .bl, #corners .tr { font-size: 18px; }
+    /* ...and PORTFOLIO leaves the top-right, where the vine now hangs, to sit
+       under the name as its subtitle: same left inset, its box dropped by the
+       name's line and an 8px gap so the two read as a pair */
+    #corners .tr { left: 0; right: auto; top: 28px; }
+    /* just PORTFOLIO here: in a two-line stack CREATIVE made it a second
+       heading competing with the name. The space after it collapses at the
+       start of the line once the word is gone. */
+    #corners .tr em { display: none; }
   }
 </style>
 </head>
