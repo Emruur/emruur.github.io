@@ -6,7 +6,7 @@
 <title>Misket, in ASCII</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -40,6 +40,12 @@
     --ink-3:  #d9d9d9;
     --ink-4:  #ffffff;
     --bloom:  #d4d4d4;
+    /* --ui-font, --ui-weight and --ui-size are left UNSET on purpose: every
+       rule that reads them carries its own fallback (JetBrains Mono, 400, 1x), so the
+       page is exactly as written until something sets them -- which only
+       font-panel.js does, and only when the URL asks for it with ?fonts. They
+       reach the nav, its menu and the four corners; never the vine or the bee,
+       whose font is a grid and not a typeface (see #stack pre). */
   }
 
   html, body {
@@ -77,8 +83,9 @@
      console rather than letting it go quietly wrong. Note what NOT to name
      here: ui-monospace / SF Mono draws this ramp at three different widths.
 
-     VT323 loses nothing by going -- the ramp is all dots and no letters -- and
-     the nav below still has it, which is where its letterforms ever did work.
+     VT323 lost nothing by going -- the ramp is all dots and no letters. The
+     nav kept it for its letterforms until it moved to JetBrains Mono; the grid
+     never had any use for a typeface with character.
 
      Menlo is NAMED now rather than hoped for, and the face after it is carried
      in the page, because "the one font guaranteed to be there" turned out to be
@@ -144,9 +151,9 @@
     --ls: .14em;
     /* ~27px at 430 (was ~22.6), still reaching 48px by ~1370 so desktop is
        unchanged. A line rather than a breakpoint, like --gap above. */
-    font-size: clamp(24px, 2.23vw + 17.4px, 48px);
-    font-family: "VT323", monospace;
-    font-weight: 400;
+    font-size: calc(clamp(24px, 2.23vw + 17.4px, 48px) * var(--ui-size, 1));
+    font-family: var(--ui-font, "JetBrains Mono"), monospace;
+    font-weight: var(--ui-weight, 400);
     z-index: 10;
   }
   #gaze button {
@@ -188,11 +195,19 @@
      phone rule below only chooses which one is in force. */
   #gaze .w, #gaze .e { top: var(--top); }
 
-  #gaze button:hover,
+  /* Every :hover on this page sits behind (hover: hover). A phone has no
+     hover, but it fakes one: the element last tapped keeps :hover until the
+     next tap lands somewhere else, so a tapped WebDesign or a tapped replay
+     corner stayed red and underlined as if stuck. Touch gets its lit states
+     from the things that really are state -- the open list, the bee's
+     aria-current -- and a mouse gets those and hover both. */
   #gaze .drop.open > button {
     color: var(--accent);
     text-shadow: none;
     transition: none;
+  }
+  @media (hover: hover) {
+    #gaze button:hover { color: var(--accent); text-shadow: none; transition: none; }
   }
 
   /* The underline under a lit label. A scaled pseudo-element rather than an
@@ -242,11 +257,13 @@
        skip. */
     will-change: transform;
   }
-  #gaze button:hover::after,
   #gaze button[aria-current="true"]::after,
   #gaze .drop.open > button::after {
     transform: scaleX(1);
     transform-origin: right center;
+  }
+  @media (hover: hover) {
+    #gaze button:hover::after { transform: scaleX(1); transform-origin: right center; }
   }
 
   /* ---- the one branching word ------------------------------------------
@@ -292,10 +309,11 @@
     top: 100%;
     left: 0;
     padding: 1em 0 0;
-    /* a quarter up on the old line at every width: ~22px at 430, 32px from
-       ~1130. Still two thirds of the word it hangs from, so it reads as that
-       word's list and not as more nav. */
-    font-size: clamp(21px, 1.34vw + 16.8px, 32px);
+    /* ~18px at 430, 26px from ~1130: a fifth down from where it was, once
+       the nav went to a 0.6em mono and the items started reading as a second
+       row of nav. Just over half the word it hangs from, so it reads as that
+       word's list. */
+    font-size: calc(clamp(17px, 1.07vw + 13.4px, 26px) * var(--ui-size, 1));
     line-height: 1.35;
     text-align: left;
     /* column + gap rather than margins on the items: one number for the space
@@ -352,7 +370,7 @@
      would be a third thing saying the same word twice, and the list is already
      held red at its heading the whole time it is open. A step up the grey to
      --text is the same gesture at the volume this level is drawn at. */
-  #gaze .item:hover { color: var(--text); }
+  @media (hover: hover) { #gaze .item:hover { color: var(--text); } }
 
   /* The frame: four labels pinned to the corners of the WINDOW, against a nav
      that is pinned to the vine. They are not the nav and must not read as more
@@ -378,9 +396,9 @@
        back, and nothing here may eat a hover meant for a button or the vine */
     pointer-events: none;
     z-index: 10;
-    font-family: "VT323", monospace;
-    font-weight: 400;
-    font-size: clamp(14px, 2vw, 24px);
+    font-family: var(--ui-font, "JetBrains Mono"), monospace;
+    font-weight: var(--ui-weight, 400);
+    font-size: calc(clamp(14px, 2vw, 24px) * var(--ui-size, 1));
     letter-spacing: .14em;
     text-transform: uppercase;
     color: var(--ink-2);
@@ -406,14 +424,16 @@
     background: none;
     border: 0;
   }
-  #corners .tl { top: 0; left: 0; color: var(--ink-3); font-size: clamp(16px, 2.35vw, 28px); }
-  #corners .tr { top: 0; right: 0; }
+  #corners .tl { top: 0; left: 0; color: var(--ink-3); font-size: calc(clamp(13px, 1.9vw, 22px) * var(--ui-size, 1)); }
+  /* the name and what the page is, both a fifth under the 2vw line the bottom
+     pair is on: they label the page, they are not more ways out of it */
+  #corners .tr { top: 0; right: 0; font-size: calc(clamp(12px, 1.6vw, 19px) * var(--ui-size, 1)); }
   /* One step up the grey from the word beside it, not white: the same --ink-3
      the name in the opposite corner sits at, so the two ends of the top edge
      weigh the same and neither competes with the nav. Emphasis by brightness,
      which is the only axis this page has. <em> for the emphasis it actually is,
-     un-italicised because VT323 has no oblique and the browser would
-     synthesise a slant. */
+     un-italicised: emphasis here is brightness, and only JetBrains Mono's upright
+     is loaded, so an italic would be a slant the browser synthesises. */
   #corners .tr em { color: var(--ink-3); font-style: normal; }
   #corners .bl { bottom: 0; left: 0; }
   #corners .br { bottom: 0; right: 0; }
@@ -425,10 +445,12 @@
      is already inside, not four that have to be right on the sweep's first
      frame, and a permanent layer each is not worth a corner. */
   #corners a.corner, #corners button.corner { pointer-events: auto; cursor: pointer; transition: color .15s ease; }
-  #corners a.corner:hover, #corners button.corner:hover { color: var(--accent); }
+  @media (hover: hover) {
+    #corners a.corner:hover, #corners button.corner:hover { color: var(--accent); }
+  }
   /* CREATIVE is held a step brighter by its own colour; on hover the whole
      label answers, not just the half of it that inherits */
-  #corners .tr:hover em { color: inherit; }
+  @media (hover: hover) { #corners .tr:hover em { color: inherit; } }
   #corners a.corner::after, #corners button.corner::after {
     content: "";
     position: absolute;
@@ -441,8 +463,10 @@
     transform-origin: left center;
     transition: transform .42s cubic-bezier(.22, 1, .36, 1);
   }
-  #corners a.corner:hover::after,
-  #corners button.corner:hover::after { transform: scaleX(1); transform-origin: right center; }
+  @media (hover: hover) {
+    #corners a.corner:hover::after,
+    #corners button.corner:hover::after { transform: scaleX(1); transform-origin: right center; }
+  }
 
   /* The bee. A body-level sibling of #stack, not a child of it, so its z-index
      competes with the vine's layers (2) and the nav (10) in the root stacking
@@ -496,9 +520,12 @@
        haze of the whole picture, so letting 20px of them run off the top
        edge costs nothing and raises the vine's body on the screen */
     #stack { margin-right: -3px; margin-top: -20px; }
-    /* 29px from ~390 up; under that it gives way with the window, so
-       PHOTOGRAPHY, the widest word, still ends short of the leaves at 360 */
-    #gaze { --ls: .08em; font-size: min(29px, 7.4vw); }
+    /* 6vw, topping out at 26px past ~430. Sized against PHOTOGRAPHY, the
+       widest word, and the leaves nearest it across the whole sway: a 0.6em
+       mono advance is half as wide again as VT323's 0.4em, and the 7.4vw that
+       fitted VT323 ran PHOTOGRAPHY 24px into the vine at 360. At 6vw its
+       closest approach is 13px at 360 and ~20px from 390 up. */
+    #gaze { --ls: .08em; font-size: calc(min(26px, 6vw) * var(--ui-size, 1)); }
     /* Placed against the WINDOW, not the vine. On desktop the words hang off
        the vine's sides and have to move with it; here they are a column of
        their own, so #gaze lets go of #stack and covers the viewport instead,
@@ -510,20 +537,22 @@
     #gaze { position: fixed; }
     /* --top-phone marks each word's MIDDLE, not its top edge (hence the
        translate), so four heights spaced evenly about 50% put the group's
-       centre on the window's: 26 / 42 / 58 / 74, 16% apart. */
+       centre on the window's: 27.5 / 42.5 / 57.5 / 72.5, 15% apart. */
     #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px); top: var(--top-phone); transform: translateY(-50%); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
-       phone to read as a watermark. CREATIVE PORTFOLIO matches CONTACT, a
-       step under the name, and sits over the very top of the vine, where it
-       is only haze. */
-    #corners .tl { font-size: 20px; }
-    #corners .bl, #corners .tr { font-size: 18px; }
+       phone to read as a watermark. CONTACT keeps 18px; the name and
+       PORTFOLIO under it sit a step below at 16 and 14, small enough to read
+       as a caption to the page rather than a heading over it. */
+    #corners .tl { font-size: calc(16px * var(--ui-size, 1)); }
+    #corners .bl { font-size: calc(18px * var(--ui-size, 1)); }
+    #corners .tr { font-size: calc(14px * var(--ui-size, 1)); }
     /* ...and PORTFOLIO leaves the top-right, where the vine now hangs, to sit
        under the name as its subtitle: same left inset, its box dropped by the
-       name's line and an 8px gap so the two read as a pair */
-    #corners .tr { left: 0; right: auto; top: 28px; }
+       name's line so the two read as a pair. 23px is the 16px name's line box,
+       less the leading the smaller face carries above its capitals. */
+    #corners .tr { left: 0; right: auto; top: 23px; }
     /* just PORTFOLIO here: in a two-line stack CREATIVE made it a second
        heading competing with the name. The space after it collapses at the
        start of the line once the word is gone. */
@@ -536,8 +565,8 @@
   <nav id="gaze" aria-label="Sections">
     <!-- no data-href while about.html is unfinished: the word stays, the
          click does nothing, the same as WebDesign -->
-    <button type="button" class="w" style="--top: 20%; --top-phone: 42%;">About</button>
-    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 26%;">Photography</button>
+    <button type="button" class="w" style="--top: 20%; --top-phone: 42.5%;">About</button>
+    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 27.5%;">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
          was: the bee aims at these rects every frame and the reveal script
@@ -551,14 +580,14 @@
          bee script), so these can sit in any order and each word can carry a
          different height on a phone (--top-phone) without the bee zigzagging.
          Kept in desktop order anyway, so the source reads like the page. -->
-    <div class="drop w" style="--top: 60%; --top-phone: 74%;">
+    <div class="drop w" style="--top: 60%; --top-phone: 72.5%;">
       <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
       <div class="menu" id="projects-menu">
         <a class="item" href="https://theoriginlibrary.com" target="_blank" rel="noopener">Origin Library</a>
         <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
       </div>
     </div>
-    <button type="button" class="e" style="--top: 80%; --top-phone: 58%;">WebDesign</button>
+    <button type="button" class="e" style="--top: 80%; --top-phone: 57.5%;">WebDesign</button>
   </nav>
 </div>
 
@@ -590,20 +619,26 @@
   /* ---- everything adjustable, in one place ----------------------------- */
 
   var SCALE     = 0.97;           // how much of the window height the vine fills
-  // 4 here is the 6 this was tuned at, in the default font's units: what the
-  // tuning was ever about is the CELL, and a cell is advance x size, so a
-  // 0.602em advance reaches the same 2.4px at 4 that VT323's 0.40em did at 6.
-  // The tuning stands -- the vine's contrast lives in single bright cells among
-  // dim ones, and below about 2px of cell a lit bead is a dot small enough to
-  // read as grey however bright its colour, while above ~2.8 the stems start
-  // losing their shape.
+  // What this is ever about is the CELL, and a cell is advance x size: 5 in a
+  // 0.602em font is a 3px cell, and the cell is SQUARE (see CELL below), so
+  // that is a 3px row pitch as well. The vine was first drawn on 2.4 x 4.8px
+  // cells -- the 1:2 every character grid starts from -- and that shape was
+  // the single largest thing between this and the footage: twice as much
+  // detail across as down, so every bead was sampled as a stack of three or
+  // four horizontal rows with a dark gap between each, and read as a bar of
+  // dashes rather than a round bead. Halving the row pitch put the beads back
+  // round and the stems back continuous, and needed a master with twice the
+  // rows to feed it. Below about 2px a lit bead is a dot small enough to read
+  // as grey however bright its colour, which is why this does not go to 4.
   //
   // It is the RESOLUTION the vine asks for, though, not the size it ends up:
   // buildGrid turns it into a row count and then sizes the cell to fill the
   // window, so on a display tall enough to exhaust the master the cell grows
-  // past this and the stems thicken. That is the trade a 200-row master makes.
-  var CHAR_SIZE = 4;              // CSS pixels per character, before fitting
+  // past this and the stems thicken. That is the trade a 400-row master makes.
+  var CHAR_SIZE = 5;              // CSS pixels per character, before fitting
   var FLOOR     = 16;             // black point: cells dimmer than this vanish
+  // ...and the bake zeroes them too (bake.py --floor 16), so raising this past
+  // 16 is free but lowering it finds nothing there: re-bake to match.
   var GAMMA     = 0.50;           // <1 lifts midtones, >1 crushes them
   // Darkest to lightest; first must be a space, and a ramp has to climb in INK
   // COVERAGE or a glyph lighter than the one before it reads as a dent.
@@ -720,6 +755,11 @@
   // a smaller vine means FEWER characters rather than smaller ones.
   var mCols = data.cols, mRows = data.rows, cells = mCols * mRows;
   var ASPECT = mCols / mRows;
+  // The cell's height over its width, and the payload's to say: a master is
+  // baked against a cell shape (bake.py --cell), and ASPECT above is only the
+  // vine's true shape when the grid is drawn on that same cell. Square for the
+  // vine; a payload from before the field existed was baked at the old 1:2.
+  var CELL = data.cell || 2;
   var deltas = data.deltas, total = deltas.length + 1;
   var maxLevel = data.levels - 1;
 
@@ -753,7 +793,7 @@
   // Deltas are sequential, so the decoder can only ever go forward -- but the
   // sway loop has to come back to LOOP_A, and the growth has to start partway
   // in at GROW_FROM. So decode the clip once, up front, and keep all of it:
-  // 192 frames x 19600 cells is 3.8 MB, after which showing any frame is a
+  // 192 frames x 40800 cells is 7.8 MB, after which showing any frame is a
   // subarray view. No copy, no re-decode, and backwards costs what forwards does.
   function buildCache() {
     var work = new Uint8Array(cells), f;
@@ -801,8 +841,8 @@
   /* ---- display grid ---------------------------------------------------- */
 
   // Monospace advance width varies by font, so measure it rather than assuming
-  // 0.6em -- guessing would distort the vine. Cells must end up a true 2:1,
-  // the ratio the bake grid was chosen against.
+  // 0.6em -- guessing would distort the vine. Cells must end up exactly the
+  // shape the bake grid was chosen against -- CELL, from the payload.
   var advanceRatio = 0.6;
   var gCols = 0, gRows = 0, layers = [], colW = null, rowW = null, tmp = null;
 
@@ -863,7 +903,7 @@
   }
 
   function buildGrid() {
-    var cellW = advanceRatio * CHAR_SIZE, cellH = 2 * cellW;
+    var cellW = advanceRatio * CHAR_SIZE, cellH = CELL * cellW;
     // No 0.94 here, unlike a centred figure: the vine hangs from the top edge,
     // so the margin it wants above it is none at all. SCALE alone decides how
     // far down the window it reaches.
@@ -877,12 +917,13 @@
     gRows = Math.max(8, Math.min(r, mRows));
     gCols = Math.max(6, Math.min(c, mCols));
 
-    // The master can run out before the window does. 200 rows at the tuned
-    // cell is 963px of vine, so a viewport taller than about 1000px -- a 16"
-    // laptop is 1117, a full-screen 27" is 1440, and Safari's thinner toolbar
-    // gets there before Chrome's does on the same display -- left the vine
-    // hanging short of the floor with black underneath it, filling 86% or 67%
-    // of the height SCALE promised. It reads as the plant having stopped
+    // The master can run out before the window does. When the master was
+    // 200 rows, that was 963px of vine at the tuned cell, so a viewport taller
+    // than about 1000px -- a 16" laptop is 1117, a full-screen 27" is 1440, and
+    // Safari's thinner toolbar gets there before Chrome's does on the same
+    // display -- left the vine hanging short of the floor with black underneath
+    // it, filling 86% or 67% of the height SCALE promised. 400 rows at 3px
+    // moves the edge out to about 1240px, but a full-screen 27" is still past it. It reads as the plant having stopped
     // growing, which on a page whose whole subject is growth is the one thing
     // it must not look like.
     //
@@ -892,7 +933,7 @@
     // beads once it can no longer buy more of them. Below the cap this changes
     // nothing -- the arithmetic hands back the CHAR_SIZE it started from -- and
     // the width term keeps a narrow window from pushing the vine out of frame.
-    var size = Math.min(availH / (gRows * 2 * advanceRatio),
+    var size = Math.min(availH / (gRows * CELL * advanceRatio),
                         availW / (gCols * advanceRatio));
 
     // ...but the ROW PITCH it implies has to be a whole CSS pixel, because
@@ -904,20 +945,20 @@
     // and got 3, so 200 rows came out 600px instead of 699, 83% of the viewport
     // where SCALE promised 97%. The same bug the note above describes, from the
     // other end, and worse than short: the ADVANCE stays fractional while the
-    // pitch is truncated, so the cell loses the 1:2 the bake grid assumes and
+    // pitch is truncated, so the cell loses the shape the bake grid assumes and
     // the vine is squashed as well as stunted.
     //
     // So the pitch is what gets chosen, and the font size is read off it rather
     // than the other way round. At lineHeight = pitch and fontSize =
-    // pitch / (2 * advance) the cell is exactly pitch/2 x pitch in every engine
-    // -- 1:2 by construction, with nothing left to round. Rounding to nearest
+    // pitch / (CELL * advance) the cell is exactly pitch/CELL x pitch in every
+    // engine -- the bake's shape by construction, with nothing left to round. Rounding to nearest
     // rather than down keeps the vine in contact with the floor, and can ask
     // for at most half a pixel per row more than there is, so give a row back
     // when it does. index.html solves this by measuring the honoured line box
     // instead (see cell()); this is the same fix without the second reflow.
-    var pitch = Math.max(2, Math.round(size * 2 * advanceRatio));
+    var pitch = Math.max(2, Math.round(size * CELL * advanceRatio));
     if (gRows * pitch > availH) gRows = Math.max(8, Math.floor(availH / pitch));
-    size = pitch / (2 * advanceRatio);
+    size = pitch / (CELL * advanceRatio);
 
     stackRect = null;           // the grid decides the box; it has just changed
     painted.length = 0;         // ...so nothing on screen matches anything held
@@ -972,8 +1013,8 @@
     if (!r.width || !r.height) return;
     var cw = r.width / gCols, ch = r.height / gRows;
     // rc and rr are the same radius in px measured in columns and in rows, which
-    // are not the same size: the vine's cell is 1:2, so a round patch on screen
-    // is an ellipse in the grid and the falloff below has to be normalised by
+    // need not be the same size: on any cell that is not square a round patch
+    // on screen is an ellipse in the grid and the falloff below has to be normalised by
     // each axis separately or the bloom comes out a stripe.
     bite = { col: (bx - r.left) / cw, row: (by - r.top) / ch,
              rc: br / cw, rr: br / ch, amp: amp };
@@ -1303,10 +1344,10 @@
   // the vine without reading as a different material.
   // 12 x 0.602 x 5 = 36.1px.
   //
-  // What differs from the vine besides is the cell's SHAPE, not its size: the
-  // vine squares its cells to 2:1 because that is the aspect its master was
-  // baked at, and start() gives the bee square ones instead, or twelve rows of
-  // bee would be twice as tall as they are wide and there would be no waist.
+  // That is now the vine's own cell too, square and 3px: the bee is drawn on
+  // square cells because twelve rows of bee on 1:2 ones would be twice as tall
+  // as they are wide and there would be no waist, and the vine moved onto the
+  // same shape later for the same reason -- see its CHAR_SIZE.
   var CHAR_SIZE = 5;    // px per cell -> a 12x12 sprite, 36.1px
   var FLOOR = 16;       // black point: cells dimmer than this vanish
   var GAMMA = 0.80;     // <1 lifts the midtones, which is where the wing lives
@@ -1603,6 +1644,7 @@
   // height is taken off the label, so the bee still reads as belonging to that
   // word, but x is measured off the vine -- the bee is here to eat, and the
   // plant is the thing it has to be next to.
+  var PHONE = window.matchMedia("(max-width: 600px)");
   function aimAt(i) {
     var r = btnBox(i);
     // the side of the VINE, not of the window: they are the same line while it
@@ -1612,6 +1654,13 @@
     var sb = stackBox();
     var mid = (sb.left + sb.right) / 2;
     var left = (r.left + r.right) / 2 < mid;
+    // ...except on a phone, where every word is on the left and the gap
+    // between them and the vine is the one strip the words need to read
+    // clearly. There the bee feeds from the FAR side, in the black between the
+    // outermost leaves and the window edge, and the words keep their gap. The
+    // same breakpoint as the phone layout in the stylesheet, asked fresh per
+    // leg so a window dragged across it is right by the next flight.
+    if (PHONE.matches) left = !left;
     var y = (r.top + r.bottom) / 2 - LIFT;
     // INSIDE the label, in the gap it leaves between itself and the vine, nose
     // to the nearest strand at its own height. The sign comes from the rect, so
@@ -1844,10 +1893,14 @@
       if (hoverIndex !== i) return;
       if (e.relatedTarget && zone.contains(e.relatedTarget)) return;   // still inside
       hoverIndex = -1;
-      // resume the rotation FROM HERE rather than from wherever it had got to,
-      // so the next button is the one after the one just visited
-      autoIndex = i;
-      if (arrived) dwell = DWELL;
+      // Resume the rotation FROM HERE rather than from wherever it had got to,
+      // and move on at once: the word the pointer just left has had its visit.
+      // Staying for a fresh DWELL -- what this used to do -- kept the word red
+      // for a second and a half after the pointer was gone, and a bee still on
+      // its way there landed and lit it AFTER the pointer had left, so letting
+      // go of a word looked like it had stuck.
+      autoIndex = nextDown(i);
+      retarget(false);
     });
   });
 
@@ -1862,9 +1915,9 @@
 
   function start() {
     // Monospace advance width varies by font, so measure it rather than assuming
-    // 0.6em -- the vine measures it for the same reason. The vine then squares
-    // its cells to 2:1 because that is the aspect its source grid was baked at;
-    // a hand-drawn sprite wants SQUARE cells instead, or six rows of bee would
+    // 0.6em -- the vine measures it for the same reason. The vine then shapes
+    // its cells to whatever its payload was baked at (square, as it happens);
+    // a hand-drawn sprite wants SQUARE cells regardless, or six rows of bee would
     // be twice as tall as it is wide and there would be no room to draw a waist.
     var probe = document.createElement("canvas").getContext("2d");
     var style = getComputedStyle(pres[0]);
@@ -1971,10 +2024,9 @@
 </script>
 <script>
 /* ---- the labels --------------------------------------------------------
-   The nav comes in with the growth: a word lights up when the vine has grown
-   past the height that word sits at, so the list writes itself down the page
-   at the plant's own pace instead of sitting there complete while the plant is
-   still a stub.
+   The nav comes in with the growth: once the vine has grown past the lowest
+   word, the list rises into place from the bottom up, rather than sitting
+   there complete while the plant is still a stub.
 
    Its own IIFE, and it reads the vine the way the bee does -- off the rendered
    <pre>s, never off the vine's clock or its frame number. The growth is a clip
@@ -1990,6 +2042,15 @@
   "use strict";
 
   var SAMPLE = 80;      // ms between reads; the growth is 24fps, this is plenty
+
+  // The list waits for the growth to reach its LOWEST word and then rises:
+  // bottom to top, STAGGER apart, answering the vine all at once rather than
+  // following it down. Written in word by word as the tip passed each one, it
+  // read as the growth ticking things off a list. Which word is lowest is read
+  // off the boxes, so it is WEBDESIGN on desktop and PROJECTS on a phone with
+  // nothing here knowing which layout is in force.
+  var STAGGER = 220;    // ms between words in the rising cascade
+  var cascade = [];     // its pending timeouts; non-empty while it runs
 
   var stack = document.getElementById("stack");
   var layers = [].slice.call(document.querySelectorAll("#stack pre")).slice(2);
@@ -2052,6 +2113,8 @@
   // One SAMPLE of patience is several of the vine's frames.
   document.addEventListener("misket:replay", function () {
     var wasDone = !pending.length;
+    cascade.forEach(clearTimeout);
+    cascade = [];
     all.forEach(function (b) { b.classList.remove("grown"); });
     gaze.classList.remove("grown");
     pending = all.slice();
@@ -2121,13 +2184,19 @@
     if (now - at >= SAMPLE) {
       at = now;
       var y = front();
-      if (y !== null) {
-        for (var i = pending.length - 1; i >= 0; i--) {
-          var b = btnBox(pending[i]);
-          // the middle of the word, not its top: the fade should read as the
-          // growth passing THROUGH it
-          if (b.top + b.height / 2 <= y) reveal(pending[i]);
-        }
+      // lowest word first; nothing is revealed until the tip has passed it
+      if (y !== null && !cascade.length) {
+        var order = pending.slice().sort(function (a, b) {
+          var ra = btnBox(a), rb = btnBox(b);
+          return (rb.top + rb.height / 2) - (ra.top + ra.height / 2);
+        });
+        var low = btnBox(order[0]);
+        // the middle of the word, not its top: the cascade should start as
+        // the growth passes THROUGH it
+        if (low.top + low.height / 2 <= y)
+          cascade = order.map(function (b, k) {
+            return setTimeout(function () { reveal(b); }, k * STAGGER);
+          });
       }
     }
     requestAnimationFrame(tick);
@@ -2174,7 +2243,8 @@
    shut while the bee is still there stays shut until it lands here again.
 
    The pointer's reason is mouse only, which is the point of pointerType: touch
-   has no hover, and its first tap is the pin.
+   has no hover, and its first tap is the pin. On a mouse the pin ends when the
+   pointer leaves -- see pointerout.
 
    pointerover/pointerout rather than enter/leave, because those bubble: the
    listener sits on the wrapper, which is pointer-events:none like the rest of
@@ -2208,10 +2278,16 @@
   drop.addEventListener("pointerover", function (e) {
     if (e.pointerType === "mouse" && ready()) set(true);
   });
+  // A mouse leaving lets go of the pin as well as the hover. A click on a
+  // mouse used to pin the list open past the pointer, which left PROJECTS lit
+  // red over an empty patch of page until a click somewhere else -- reading
+  // as stuck rather than as chosen. So on a mouse the pin lasts exactly as
+  // long as the hover it was made under; it only outlives the pointer on
+  // touch, where there is no pointer to outlive.
   drop.addEventListener("pointerout", function (e) {
-    if (e.pointerType !== "mouse" || pinned) return;
+    if (e.pointerType !== "mouse") return;
     if (e.relatedTarget && drop.contains(e.relatedTarget)) return;   // still inside
-    hover = false;
+    hover = pinned = false;
     sync();                     // the bee may still be holding it open
   });
 
@@ -2276,6 +2352,16 @@
     if (btn) location.href = btn.dataset.href;
   });
 })();
+</script>
+
+<!-- The type bench: index.html?fonts. Not part of the piece and never loaded
+     without the flag -- see font-panel.js. -->
+<script>
+if (/[?&]fonts\b/.test(location.search)) {
+  var fp = document.createElement("script");
+  fp.src = "font-panel.js";
+  document.body.appendChild(fp);
+}
 </script>
 
 </body>
