@@ -474,22 +474,24 @@
      column. Tighter tracking still buys PHOTOGRAPHY back a few characters. The frame loses its right-hand
      pair: the vine is standing where they were. */
   @media (max-width: 600px) {
-    /* held off the edge rather than glued to it, so the vine reads as hung
-       in the frame and its right-hand leaves have air past them */
-    body { place-items: start end; padding-right: 20px; }
+    /* held a little off the edge. Only a little: the vine's own grid already
+       carries ~30px of empty cells right of its outermost leaves, so 8px
+       here reads as air, and every px given to it comes out of the gap
+       between PHOTOGRAPHY and the left of the vine */
+    body { place-items: start end; padding-right: 8px; }
     /* 29px from ~390 up; under that it gives way with the window, so
        PHOTOGRAPHY, the widest word, still ends short of the leaves at 360 */
     #gaze { --ls: .08em; font-size: min(29px, 7.4vw); }
     /* Placed against the WINDOW, not the vine. On desktop the words hang off
        the vine's sides and have to move with it; here they are a column of
        their own, so #gaze lets go of #stack and covers the viewport instead,
-       and a left of 2rem is simply 2rem from the window's edge, whatever the
+       and a left of 3rem is simply 3rem from the window's edge, whatever the
        vine's grid decides its width is.
        The heights become fractions of the window rather than of the vine,
        which is 97% of it, so they barely move. Nothing between here and the
        root is transformed, so fixed really is the viewport. */
     #gaze { position: fixed; }
-    #gaze .w, #gaze .e { right: auto; left: 2rem; top: var(--top-phone); }
+    #gaze .w, #gaze .e { right: auto; left: 3rem; top: var(--top-phone); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
