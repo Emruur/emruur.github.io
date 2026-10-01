@@ -397,6 +397,14 @@
     white-space: nowrap;
     color: inherit;
     text-decoration: none;
+    /* two of the four are <button>s; this takes the UA chrome back off them.
+       font is reset here, at this rule's weight, so .tl below still sets its
+       own size over it */
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    background: none;
+    border: 0;
   }
   #corners .tl { top: 0; left: 0; color: var(--ink-3); font-size: clamp(16px, 2.35vw, 28px); }
   #corners .tr { top: 0; right: 0; }
@@ -416,9 +424,12 @@
      No will-change here -- these are two bars that move on a hover the pointer
      is already inside, not four that have to be right on the sweep's first
      frame, and a permanent layer each is not worth a corner. */
-  #corners a.corner { pointer-events: auto; cursor: pointer; transition: color .15s ease; }
-  #corners a.corner:hover { color: var(--accent); }
-  #corners a.corner::after {
+  #corners a.corner, #corners button.corner { pointer-events: auto; cursor: pointer; transition: color .15s ease; }
+  #corners a.corner:hover, #corners button.corner:hover { color: var(--accent); }
+  /* CREATIVE is held a step brighter by its own colour; on hover the whole
+     label answers, not just the half of it that inherits */
+  #corners .tr:hover em { color: inherit; }
+  #corners a.corner::after, #corners button.corner::after {
     content: "";
     position: absolute;
     left: var(--pad);
@@ -430,7 +441,8 @@
     transform-origin: left center;
     transition: transform .42s cubic-bezier(.22, 1, .36, 1);
   }
-  #corners a.corner:hover::after { transform: scaleX(1); transform-origin: right center; }
+  #corners a.corner:hover::after,
+  #corners button.corner:hover::after { transform: scaleX(1); transform-origin: right center; }
 
   /* The bee. A body-level sibling of #stack, not a child of it, so its z-index
      competes with the vine's layers (2) and the nav (10) in the root stacking
@@ -491,7 +503,10 @@
        which is 97% of it, so they barely move. Nothing between here and the
        root is transformed, so fixed really is the viewport. */
     #gaze { position: fixed; }
-    #gaze .w, #gaze .e { right: auto; left: 3rem; top: var(--top-phone); }
+    /* --top-phone marks each word's MIDDLE, not its top edge (hence the
+       translate), so four heights spaced evenly about 50% put the group's
+       centre on the window's: 26 / 42 / 58 / 74, 16% apart. */
+    #gaze .w, #gaze .e { right: auto; left: 3rem; top: var(--top-phone); transform: translateY(-50%); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
@@ -508,8 +523,8 @@
   <nav id="gaze" aria-label="Sections">
     <!-- no data-href while about.html is unfinished: the word stays, the
          click does nothing, the same as WebDesign -->
-    <button type="button" class="w" style="--top: 20%; --top-phone: 40%;">About</button>
-    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 80%;">Photography</button>
+    <button type="button" class="w" style="--top: 20%; --top-phone: 42%;">About</button>
+    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 26%;">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
          was: the bee aims at these rects every frame and the reveal script
@@ -523,14 +538,14 @@
          bee script), so these can sit in any order and each word can carry a
          different height on a phone (--top-phone) without the bee zigzagging.
          Kept in desktop order anyway, so the source reads like the page. -->
-    <div class="drop w" style="--top: 60%; --top-phone: 20%;">
+    <div class="drop w" style="--top: 60%; --top-phone: 74%;">
       <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
       <div class="menu" id="projects-menu">
         <a class="item" href="https://theoriginlibrary.com" target="_blank" rel="noopener">Origin Library</a>
         <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
       </div>
     </div>
-    <button type="button" class="e" style="--top: 80%; --top-phone: 60%;">WebDesign</button>
+    <button type="button" class="e" style="--top: 80%; --top-phone: 58%;">WebDesign</button>
   </nav>
 </div>
 
@@ -540,8 +555,10 @@
      chrome and are simply there once the vine is. Sibling of #stack and after
      it, which is what lets the fade below be a selector rather than a script. -->
 <div id="corners">
-  <span class="corner tl">Emre Uğur</span>
-  <span class="corner tr"><em>Creative</em> Portfolio</span>
+  <!-- buttons, not links: they go nowhere, they play the opening again --
+       see the replay script at the foot of the file -->
+  <button type="button" class="corner tl replay">Emre Uğur</button>
+  <button type="button" class="corner tr replay"><em>Creative</em> Portfolio</button>
   <!-- the two live ones: point them somewhere before this goes anywhere -->
   <a class="corner bl" href="#">Contact</a>
   <a class="corner br" href="#" target="_blank" rel="noopener">GitHub</a>
@@ -1132,6 +1149,15 @@
   });
 
   window.addEventListener("resize", function () { buildGrid(); repaint(); });
+
+  // The opening again, from the top. The position is closed-form in t, so
+  // rewinding is forgetting when it started: tick() takes the next frame as
+  // t=0 and grows the vine out of black exactly as on load. shown and
+  // lastPaint are cleared so that first frame is painted, not skipped as
+  // already on screen.
+  document.addEventListener("misket:replay", function () {
+    t0 = 0; hiddenAt = 0; shown = -1; lastPaint = -1e9;
+  });
 
   function start() {
     measure();
@@ -1840,8 +1866,11 @@
     halfW = host.offsetWidth / 2;
     halfH = host.offsetHeight / 2;
 
-    // the top word, wherever the layout has put it
-    autoIndex = byHeight()[0];
+    // PROJECTS first, on every layout -- it is the word with somewhere to go,
+    // and the bee landing on it opens the list. The rotation then carries on
+    // down the page from there (and wraps to the top) by nextDown.
+    var home = buttons.indexOf(document.querySelector("#gaze .drop > button"));
+    autoIndex = home >= 0 ? home : byHeight()[0];
     var first = aimAt(autoIndex);
     x = first.x; y = first.y;
     target = first;
@@ -1873,15 +1902,34 @@
     var plantData = window.ASCII_PLANT;
     var CAP = (plantData ? (150 / plantData.fps) * 1000 : 4000) + 1200;
     var waitedFrom = performance.now();
+    // Bumped by a replay, so a wait already in flight from the last opening
+    // finds itself stale and stops, instead of fading the bee in early.
+    var opening = 0;
 
-    (function waitForLabels() {
+    // On a replay the bee leaves with the list and comes back the way it first
+    // arrived: faded out, nothing lit, and waiting on the same `grown` mark.
+    // It keeps flying meanwhile; nobody can see it, and it is then already on
+    // its rounds when it fades up.
+    document.addEventListener("misket:replay", function () {
+      opening++;
+      host.classList.remove("ready");
+      beeReady = false;
+      lit(-1);
+      waitedFrom = performance.now();
+      waitForLabels(opening);
+    });
+
+    waitForLabels(opening);
+    function waitForLabels(run) {
+      if (run !== opening) return;
       if (!(gaze && gaze.classList.contains("grown")) &&
           performance.now() - waitedFrom < CAP)
-        return void requestAnimationFrame(waitForLabels);
+        return void requestAnimationFrame(function () { waitForLabels(run); });
 
       // a beat behind the mark, so the bee's half-second fade sits under the tail
       // of the last word's rather than racing it
       setTimeout(function () {
+        if (run !== opening) return;
         host.classList.add("ready");
         // Only now is there a bee to see, so only now is there anything to
         // light: the swell is held at zero until this, or the vine would come
@@ -1894,7 +1942,7 @@
         // few pixels in while it fades up.
         retarget(true);
       }, 250);
-    })();
+    }
 
     requestAnimationFrame(tick);
   }
@@ -1973,9 +2021,31 @@
   // pass anything. Either way the list has to be there when the growth is over,
   // so the clip's own length decides the last word, whatever the ink did.
   var plant = window.ASCII_PLANT;
-  setTimeout(function () {
-    while (pending.length) reveal(pending[pending.length - 1]);
-  }, (plant ? (150 / plant.fps) * 1000 : 4000) + 600);
+  var backstop = 0;
+  function armBackstop() {
+    clearTimeout(backstop);
+    backstop = setTimeout(function () {
+      while (pending.length) reveal(pending[pending.length - 1]);
+    }, (plant ? (150 / plant.fps) * 1000 : 4000) + 600);
+  }
+  armBackstop();
+
+  // A replay takes every word back off the page and lets the regrowing vine
+  // write them in again. The loop below stops itself once the list is done,
+  // so it is started again here when it had. The sample clock is set to NOW
+  // rather than cleared: at this instant the vine is still drawn fully grown,
+  // and it repaints from black only on its next frame -- a read taken first
+  // would see the old tip at the bottom and write every word straight back.
+  // One SAMPLE of patience is several of the vine's frames.
+  document.addEventListener("misket:replay", function () {
+    var wasDone = !pending.length;
+    all.forEach(function (b) { b.classList.remove("grown"); });
+    gaze.classList.remove("grown");
+    pending = all.slice();
+    at = performance.now();
+    armBackstop();
+    if (wasDone) requestAnimationFrame(tick);
+  });
 
   // the grid is rebuilt on resize, so the row count is re-read rather than kept
   window.addEventListener("resize", function () {
@@ -2050,6 +2120,22 @@
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+})();
+</script>
+
+<script>
+/* ---- replay -------------------------------------------------------------
+   The name and CREATIVE PORTFOLIO play the opening again: the vine grows
+   from black, the words write themselves back in as it passes them, and the
+   bee returns after the last. Each script owns its own part and listens for
+   this one event, so nothing here knows how any of them is built. */
+(function () {
+  "use strict";
+  [].forEach.call(document.querySelectorAll("#corners .replay"), function (b) {
+    b.addEventListener("click", function () {
+      document.dispatchEvent(new Event("misket:replay"));
+    });
+  });
 })();
 </script>
 
@@ -2147,6 +2233,8 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && drop.classList.contains("open")) { set(false); btn.focus(); }
   });
+  // a replay takes PROJECTS off the page, and its list must not outstay it
+  document.addEventListener("misket:replay", function () { set(false); });
 })();
 </script>
 
