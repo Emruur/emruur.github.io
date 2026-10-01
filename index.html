@@ -470,22 +470,26 @@
   /* Phone width: the vine hangs from the RIGHT edge and every word goes to
      its left. Split either side of a centred vine, each word had ~90px to
      itself and two of them leaned into the leaves; one column on the open
-     side gives them the whole width the vine leaves. Tighter tracking still
-     buys PHOTOGRAPHY back a few characters. The frame loses its right-hand
+     side gives them the whole width the vine leaves, left-aligned in one
+     column. Tighter tracking still buys PHOTOGRAPHY back a few characters. The frame loses its right-hand
      pair: the vine is standing where they were. */
   @media (max-width: 600px) {
-    body { place-items: start end; }
-    /* and a lighter lean into the leaves: the -60px the line above bottoms
-       out at was buying room this column no longer needs, and at that depth
-       PHOTOGRAPHY ran into the beads. -24 sets every word's last letter on
-       the vine's outer fringe. */
-    #gaze { --ls: .08em; --gap: -24px; }
-    /* One column, left-aligned: every word starts at the same x. That x is
-       where PHOTOGRAPHY, the widest word, already began when the words met
-       the vine at their right ends -- 5.3em is that word's width at this
-       tracking, in the words' own em so it holds at every width -- so it
-       stays put and the shorter words stop short of the leaves. */
-    #gaze .w, #gaze .e { right: auto; left: calc(-1 * var(--gap) - 5.3em); top: var(--top-phone); }
+    /* held off the edge rather than glued to it, so the vine reads as hung
+       in the frame and its right-hand leaves have air past them */
+    body { place-items: start end; padding-right: 20px; }
+    /* 29px from ~390 up; under that it gives way with the window, so
+       PHOTOGRAPHY, the widest word, still ends short of the leaves at 360 */
+    #gaze { --ls: .08em; font-size: min(29px, 7.4vw); }
+    /* Placed against the WINDOW, not the vine. On desktop the words hang off
+       the vine's sides and have to move with it; here they are a column of
+       their own, so #gaze lets go of #stack and covers the viewport instead,
+       and a left of 2rem is simply 2rem from the window's edge, whatever the
+       vine's grid decides its width is.
+       The heights become fractions of the window rather than of the vine,
+       which is 97% of it, so they barely move. Nothing between here and the
+       root is transformed, so fixed really is the viewport. */
+    #gaze { position: fixed; }
+    #gaze .w, #gaze .e { right: auto; left: 2rem; top: var(--top-phone); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
