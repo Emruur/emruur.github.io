@@ -1,0 +1,2233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Photography — Emre Uğur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* The palette is index.html's, copied rather than reinvented -- the three
+     pages have to agree on black, on the five greys and on the one red, and
+     this is the only place a colour is written down here too.
+
+     Black-background only, for the reason set out at the top of index.html's
+     stylesheet. It arrives here by a different road and lands in the same
+     place: this page is a wall of photographs, most of them exposed for one
+     light in a dark room, and a white ground puts a hard edge around every one
+     of them. On black they end where the light in them ends.
+
+     The red is still spent on exactly one thing -- the label for what the
+     pointer is on. On this page the pointer is the VIEWPORT: there is no
+     hovering your way around a world you have to drag, so the lit word is the
+     wall you are standing in front of. Same rule, one level up. */
+  :root {
+    --bg:     #000;
+    --text:   #ffffff;
+    --accent: #ff3131;
+    --ink-0:  #2d2d2d;
+    --ink-1:  #565656;
+    --ink-2:  #979797;
+    --ink-3:  #d9d9d9;
+    --ink-4:  #ffffff;
+    --bloom:  #d4d4d4;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    /* Two lines, and both are load-bearing rather than tidy. A horizontal
+       deltaX on a Mac trackpad is Chrome's back-navigation gesture, and a
+       visitor who flicks left hard enough to cross this world LEAVES THE PAGE.
+       preventDefault on a non-passive wheel listener is the other half of it;
+       neither one alone is enough, because the gesture is decided by the
+       compositor before the listener is asked. */
+    overscroll-behavior: none;
+  }
+
+  /* The page does not scroll. It never has a scrollbar, never has a scroll
+     offset, and translates one transform instead -- which is the same promise
+     index.html makes, kept for the same reason: every coordinate in
+     photo-layout.js is world-space, and the only thing between world space and
+     the window is the number in #world's transform. Introduce a scroll offset
+     and there are suddenly two of them to keep in agreement. */
+  #viewport {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;       /* the drag is ours; the browser must not pan too */
+  }
+  #viewport.dragging { cursor: grabbing; }
+
+  /* The world. Its width and height are written by script on every resize --
+     six windows wide by the tallest category, which is far past the size
+     Chrome will hold as a
+     single layer, so it is tiled and only the visible tiles ever raster. That
+     is the intended behaviour and not a problem to solve; see the note on
+     will-change below for the one part of it that is a decision. */
+  #world {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    /* The one will-change on this page, and it is on this element ONLY.
+       index.html's verdict is that will-change was the single most expensive
+       line it ever carried -- so this one is MEASURED rather than argued, and
+       the measurement went the other way. Taking it off costs, at 1600x1000 and
+       dpr2 over 8s of continuous dragging, minimum of three reps alternated
+       inside one browser:
+
+           CrRendererMain   118.0 -> 147.0 ms/s    (+29.1)
+           Compositor        20.4 ->  27.4 ms/s    ( +7.0)
+           CrGpuMain         24.7 ->  28.4 ms/s    ( +3.6)
+
+       against a run-to-run spread on CrRendererMain of about 12%, so the effect
+       is several times the noise and shows on three threads at once. What made
+       the property expensive in index.html was promoting a layer whose FILTER
+       changed on a clock nobody was watching; what makes it pay here is that the
+       transform genuinely changes on every frame of every drag, which is the one
+       case the property is for.
+
+       The 125 pictures inside get none. They are CONTENT of this layer, they
+       never move relative to it, and promoting each would buy 125 permanent
+       layers to animate nothing.
+
+       Worth recording alongside it: RasterTask over the same window was
+       0.8 ms/s, measured when the world was one 8668x8439px layer -- tiled
+       rather than held whole, which was the thing expected to hurt, and the
+       cheapest line in the trace. The world is six windows wide and one
+       category tall now, which is a great deal smaller; that number has not
+       been re-measured and README.md says so. */
+    will-change: transform;
+  }
+  /* There was a `#world.flying` rule here that ran the nav's jump as a CSS
+     transition, on the argument that it put the flight on the compositor where
+     a rAF tween is not. It had to go, and the reason is worth keeping: the
+     slide between categories is HORIZONTAL and the pan within one is VERTICAL,
+     and they happen at the same time. Two writers of one transform property is
+     a fight -- the transition would keep re-interpolating from wherever the
+     vertical pan had just left the matrix. So the slide is a rAF approach in
+     the script now, sharing the one transform write with everything else. */
+
+  /* Every picture is always in the DOM at its baked box and always showing its
+     placeholder. Nothing here is ever created, moved, measured or destroyed --
+     the only thing that changes about a picture for its whole life is whether
+     its <img> has a src. That is what makes the cull pass in the script able to
+     run without reading the DOM at all.
+
+     contain: strict is index.html's `contain: size layout style` on the <pre>s
+     taken one step further, and it is legitimate here for a reason that does
+     not hold there: the box is fully known from the payload, so nothing inside
+     this element has any business affecting its size. With it, a photograph
+     arriving mid-flick CANNOT invalidate the layout of the world around it --
+     which, at 125 of them landing one per frame under a fast pan, is the
+     difference between a page and a slideshow. */
+  .pic {
+    position: absolute;
+    contain: strict;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+  /* No filter: blur() on the placeholder, deliberately. It is 14 pixels on its
+     long edge being drawn into a box thirty times that, and the GPU's bilinear
+     upscale IS the blur -- there is no sharp version of a 14px bitmap for a
+     filter to soften. A blur here would be 125 render surfaces bought to
+     duplicate something already happening for free. */
+  .pic img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    /* the site's one motion primitive, and the only transition on a photograph */
+    transition: opacity .42s cubic-bezier(.22, 1, .36, 1);
+    /* NOT cosmetic. Without it Chrome's native image drag starts the moment the
+       pointer moves on a photograph, swallows every pointermove after it, and
+       the pan simply stops working anywhere there is something to look at --
+       which is to say everywhere it matters. */
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .pic img.in { opacity: 1; }
+  /* The pictures became controls when they got a tabIndex, and a control has to
+     show where it is. Chrome's default ring is a dark line drawn inside a black
+     page on top of a photograph, which is no ring at all -- so this is the red,
+     the one colour the page spends on "what the pointer is on", used here for
+     the keyboard's version of the same question. :focus-visible and not
+     :focus, or every click on a photograph would leave a frame around it. */
+  .pic:focus { outline: none; }
+  .pic:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* THE SIGN ON THE WALL IS GONE, and this is where it was. It was a heading
+     per category, set small and one step off the darkest grey, "only there so
+     that a wall you have wandered into has a name on it".
+
+     You cannot wander into a wall any more. A category is a page, the nav along
+     the top always names the page you are on, and the heading sat directly
+     under that nav saying the same word in a quieter colour. Two labels for one
+     thing, six pixels apart. The nav won because it is also the control. */
+
+  /* ---- the chrome's ground ----------------------------------------------
+     index.html's nav never needed this: it is hung in the void around a vine,
+     and there is nothing behind a word there but the background. Here the
+     chrome sits over PHOTOGRAPHS, and a white word in VT323 over a sunlit
+     rock face is not a word, it is a texture. So the two edges the chrome
+     lives on fall away into the page's own black.
+
+     A gradient and not a panel, and not a text-shadow either. A panel is a
+     rectangle the eye reads as a toolbar, and the photographs would be behind
+     a piece of furniture; a shadow on every glyph is 25 words of smudge, which
+     is precisely what the top of index.html's stylesheet says a dark shadow
+     does. This way the wall simply runs out of light at the edge it is being
+     read from -- which is the one move this whole site is made of. */
+  body::before, body::after {
+    content: "";
+    position: fixed;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  body.ready::before, body.ready::after { opacity: 1; }
+  /* ONE gradient now, along the top, where there used to be two. The rail ran
+     down the left edge and had its own; the rail is along the top edge now and
+     shares the one that was already there for the corner labels. A left-edge
+     gradient with nothing left of the screen to darken would be a stripe down
+     the first column of every wall. */
+  body::before { display: none; }
+  /* behind the nav and the way out */
+  body::after {
+    left: 0; right: 0; top: 0;
+    height: 168px;
+    background: linear-gradient(180deg,
+      rgba(0,0,0,.94) 0%, rgba(0,0,0,.72) 38%, rgba(0,0,0,0) 100%);
+  }
+
+  /* ---- the nav ----------------------------------------------------------
+     index.html's words are placed one at a time by an inline `top: N%` and a
+     `calc(100% + 80px)` off the side of the vine, because there they are hung
+     around a picture that is the whole page. There is no vine here to hang them
+     on, and six of them would not fit the pattern if there were -- so the
+     placement idiom does not come across and a bar does instead. Everything
+     else about them does come across: the family, the tracking, the caps, the
+     red, and the wipe, which is the same three rules it is there.
+
+     ALONG THE TOP, and it used to run down the left. The rail was a rail
+     because the world was a 2D field you wandered and the words were a compass
+     in it. The world is six pages side by side now and sideways means "the next
+     category", so the words are no longer a compass -- they are the axis they
+     sit on, in the order they sit in, and a horizontal row of them says that
+     where a vertical one contradicted it. It also gives the wall the whole
+     width back, which is the point of the change underneath it: a category is
+     one screen wide, and a rail down the left would be taking a fifth of it.
+
+     The size is a clamp rather than the rail's flat 28px, because six words
+     laid end to end is a width and not a height. "People in Colour" alone is a
+     third of the set, so at 1000px there is no size that fits them all AND
+     reads as chrome -- the clamp gives up size before it gives up the row.
+
+     THEY SPAN THE WIDTH. `space-between` and not a fixed gap, so the six words
+     divide whatever is left of the window between them and the last one ends
+     level with the right edge of the wall below it. The `gap` stays as a floor:
+     when the words are wide enough to fill the bar on their own -- a narrow
+     window, or the scrolling bar a phone gets -- space-between has nothing to
+     hand out and the gap is what keeps them apart.
+
+     THEY SIT ON THE CHEVRON'S CENTRE LINE, and that is why this box has a
+     HEIGHT. The chevron is 40px of VT323 at line-height .8, which is a 32px
+     line box starting one --pad down; give the bar the same 32px and the same
+     --pad and centre inside it, and the two agree by construction at every
+     window width and every font size. Letting the words set the height instead
+     is what they used to do, and it made the alignment depend on a font metric
+     -- which also meant `gaze.offsetHeight`, the one number layout() measures,
+     moved by a few px when VT323 finished loading. It cannot now. */
+  #gaze {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    box-sizing: content-box;
+    /* the chevron's own line box, exactly */
+    height: 32px;
+    /* Vertically, the chevron's own padding, exactly, so the words keep sitting
+       on its centre line -- that is what the explicit height above is for and
+       nothing here may touch it.
+
+       Horizontally there is now a second term, --gazepad, and it is the one
+       inset on this page that is DELIBERATELY NOT the wall's. Everything else
+       here is spaced by clamp(16px, 2.4vw, 30px), which is also layout()'s PAD,
+       and that agreement is what used to put the last word exactly level with
+       the right edge of the rightmost column below it. Adding this gives the
+       bar some air at the sizes that can afford it and SPENDS that alignment to
+       get it -- the words are now inset further than the photographs are, by
+       --gazepad, at every width over 700.
+
+       It rides on top of the shared pad rather than replacing it so the left
+       still clears the chevron by construction: the chevron is at PAD with a
+       34px glyph, and the first word starts --gazepad past the far side of it
+       however wide the window is. The phone rule below overrides this padding
+       outright, which is intended -- under 700px there is nothing spare. */
+    /* The four tunables, as properties rather than values: the phone rule
+       below then overrides four numbers instead of restating four
+       declarations, and ?debug can drive all of them from one place. */
+    --gazepad:   clamp(8px, 1.1vw, 16px);
+    --gazegap:   clamp(13px, 2.4vw, 38px);
+    --gazesize:  clamp(24px, 1.9vw, 31px);
+    --gazetrack: .14em;
+    padding: clamp(16px, 2.4vw, 30px)
+             calc(clamp(16px, 2.4vw, 30px) + var(--gazepad))
+             clamp(16px, 2.4vw, 30px)
+             calc(clamp(16px, 2.4vw, 30px) * 2 + 34px + var(--gazepad));
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    /* INERT AT THESE WIDTHS, and worth knowing before anyone tunes it here:
+       justify-content is space-between and the words are far narrower than the
+       bar, so the free space is shared out between them and always exceeds this.
+       It is a floor, and the only place it is the actual spacing is the phone
+       rule, where the words fill the bar. */
+    gap: var(--gazegap);
+    z-index: 10;
+    /* THE FLOOR IS THE WHOLE OF THIS NUMBER on anything smaller than a laptop,
+       and it used to be set too low to notice. 1.9vw does not reach 17px until
+       895px of window, so every tablet sat on the floor -- and the floor was
+       SMALLER than what the phone rule below hands a 414px phone. An iPad at
+       820px read 17px where a phone read 21, which is the one direction this
+       can be wrong in that nobody thinks to check.
+
+       24px is the floor now, and it is the phone rule's ceiling as well, so the
+       two meet at 458px of window rather than stepping at the 700px breakpoint.
+       Above 1263 the vw term overtakes it and the laptop is unchanged: 25.9px
+       at 1366, 28.7 at 1512.
+
+       Fit does not constrain this. 40px fits at 701 and 47 at 820 -- above the
+       phone widths there is nothing to solve for and the size is only a
+       judgement about how loud the bar should be. */
+    font-size: var(--gazesize);
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    /* the bar is not a surface: only the six words take the pointer, and the
+       world has to be draggable through every gap between them */
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  body.ready #gaze { opacity: 1; }
+  #gaze button {
+    position: relative;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    letter-spacing: var(--gazetrack);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--text);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: color .15s ease;
+  }
+  /* The page you are on. There is no nearest-centre question to answer any
+     more and no cull pass answering it: a category IS a page, the page index is
+     the only horizontal state the viewport has, and this is that number with a
+     colour on it. The word changes when the page does and at no other time,
+     which is what hard paging buys that a free pan could not. The :hover rule
+     below is written after it and carries the same specificity, so a pointer
+     resting on another word still wins -- where there is a pointer at all. */
+  #gaze button[aria-current="true"] { color: var(--accent); transition: none; }
+  /* Hover is COLOUR ONLY. It used to draw the underline too, and that made the
+     mark mean two things at once: a bar under a word you are merely pointing at
+     says the same thing as a bar under the word you are actually on. The
+     underline is the page indicator now and nothing else -- it moves when the
+     page moves. Hover only says this one is clickable.
+
+     AND IT ONLY EXISTS WHERE THERE IS A POINTER TO ASK IT. Hover is a question
+     a mouse stops asking by leaving; a finger has no way to leave. A phone
+     stamps :hover on the word it was tapped and holds it until something else
+     is tapped, and on this page nothing else ever is -- the paging gesture is a
+     drag on #viewport, which takes the pointer with setPointerCapture and
+     touch-action: none, so the browser never re-evaluates the nav at all. The
+     word you swapped AWAY from therefore stayed lit beside the word you arrived
+     at, and the bar answered its one question twice.
+
+     The guard is on the CAPABILITY and not on the 700px width, because the two
+     are not the same question: a desktop window dragged narrow still has a
+     mouse and keeps its hover, and a phone held wide still has none. Nothing is
+     lost on touch -- a tap runs goTo() synchronously, so aria-current lights
+     the word on the same frame the hover would have. */
+  @media (hover: hover) and (pointer: fine) {
+    #gaze button:hover { color: var(--accent); transition: none; }
+  }
+
+  /* The wipe, copied from index.html with its reasons intact: a scaled
+     pseudo-element rather than an animated width so the sweep is one
+     compositor-side transform; the origin flipping between the resting and lit
+     rules so both halves of the gesture run the same way across the word; the
+     right inset by the letter-spacing so the bar ends at the last letter; and
+     the will-change, which is the one other place it is earned on this page --
+     four bars of 4px that have to be right on the sweep's FIRST frame.
+
+     WHAT IS NEW IS THAT THE SWEEP HAS A DIRECTION, and it is the direction you
+     are travelling. Going right, the old bar empties off its left end and the
+     new one fills from its left end, so the accent reads as one mark handed
+     along the bar rather than two unrelated animations. Going left, both
+     mirror. `goTo()` puts `.leftward` on the nav and every rule below comes in
+     pairs around it; the default, classless direction is rightward.
+
+     ONLY A REAL MOVE DRAWS IT. Hover is colour and no bar -- see the note on
+     the :hover rule above -- so the only thing that can start a sweep is a page
+     change, and a sweep therefore always has a direction to run in. Hover used
+     to fire one with no move behind it, which had nothing to be the direction
+     OF and ran whichever way the last page change happened to have gone.
+
+     Which end is anchored is the whole of it. Disappearing left-to-right means
+     the RIGHT edge is pinned and the left one chases it, so the outgoing bar
+     wants `transform-origin: right` -- and the incoming bar, filling from its
+     left, wants `left`. That is why the resting and lit rules carry opposite
+     origins, and why swapping the pair is all `.leftward` has to do.
+
+     It also survives a reversal mid-flight for free, which is worth knowing
+     before anyone tries to add a guard for it. Page right then immediately left
+     and two things change at once: the class flips, and the two buttons trade
+     lit for unlit. Rightward is unlit=right/lit=left and leftward is
+     unlit=left/lit=right, so each button's origin comes out where it already
+     was. Nothing re-anchors, so there is no jump to suppress -- the bar simply
+     runs back the way it came. */
+  #gaze button::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: var(--gazetrack);
+    bottom: -.22em;
+    height: .15em;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+    will-change: transform;
+  }
+  #gaze button[aria-current="true"]::after {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+  /* Travelling left: the same two rules with their anchors exchanged. */
+  #gaze.leftward button::after { transform-origin: left center; }
+  #gaze.leftward button[aria-current="true"]::after { transform-origin: right center; }
+
+  /* ---- the frame --------------------------------------------------------
+     Two corners and not four, the way about.html trims them: the nav is already
+     a third thing on this page and the bottom edge belongs to the wall. */
+  #corners {
+    --pad: clamp(16px, 2.4vw, 30px);
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    font-size: 24px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  body.ready #corners { opacity: 1; }
+  #corners .corner {
+    position: absolute;
+    padding: var(--pad);
+    white-space: nowrap;
+    color: inherit;
+    text-decoration: none;
+  }
+  #corners .tl { top: 0; left: 0; }
+  #corners .tr { top: 0; right: 0; }
+  #corners .tr em { color: var(--ink-3); font-style: normal; }
+  /* about.html's chevron, and about.html's reason for it being a chevron: "<"
+     is plain ASCII and VT323 has it, so unlike index.html's caret there is
+     nothing here for a fallback to be called in for. */
+  #corners .back {
+    font-size: 40px;
+    line-height: .8;
+    letter-spacing: 0;
+    color: var(--text);
+  }
+  #corners a.corner {
+    pointer-events: auto;
+    cursor: pointer;
+    display: inline-block;
+    transition: color .15s ease, transform .22s cubic-bezier(.22, 1, .36, 1);
+  }
+  #corners a.corner:hover { color: var(--accent); transform: translateX(-.12em); }
+
+  /* ---- one photograph ---------------------------------------------------
+     The only thing on this site that is not a piece of a picture: a single
+     photograph at the size of the window, which is the size it was taken to be
+     looked at. Opens on opacity and a small scale, both compositor properties,
+     both on the shared curve. */
+  /* Two rows: the photograph, and the line that names it. The caption was an
+     absolutely positioned corner at first and it cleared the picture by one
+     pixel on this window and would have collided on a shorter one -- the plate
+     is sized in vh and the caption in px, so the gap between them was a
+     coincidence that held at one window height. Rows cannot collide. */
+  #full {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: var(--bg);
+    display: grid;
+    grid-template-rows: 1fr auto;
+    place-items: center;
+    opacity: 0;
+    transform: scale(.985);
+    pointer-events: none;
+    transition: opacity .42s cubic-bezier(.22, 1, .36, 1),
+                transform .42s cubic-bezier(.22, 1, .36, 1);
+  }
+  #full.open { opacity: 1; transform: none; pointer-events: auto; }
+  #full[hidden] { display: none; }
+  /* Sideways is a command here too, and for the same reason it is on the wall:
+     the browser must not also read it as a pan, a pull-to-refresh or a history
+     back. touch-action is the half of that which cannot be done from script --
+     preventDefault on a pointermove is too late, the browser has already
+     decided. user-select is the other native gesture that eats a drag: without
+     it a slow one selects the caption instead of moving the photograph. */
+  #full {
+    --gap: clamp(14px, 2.2vw, 34px);
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* The plate carries the placeholder as its background for the same reason a
+     .pic does -- the full-size file is up to 450 KB and the gap before it
+     lands would otherwise be a black hole the shape of the picture. */
+  /* The plate is the picture's own shape, scaled to whichever of the window's
+     two dimensions runs out first -- which is what `width: min(the width we are
+     allowed, the width that height implies)` says, and what neither max-width
+     nor object-fit can say on their own.
+
+     The first version left the <img> at width:auto under a max-width/max-height
+     pair, which is the shape everybody writes and it was quietly wrong: an
+     <img> at width:auto draws at its NATURAL size, so a 760px file sat at 760px
+     in the middle of a 1290px hole and the view looked like it had failed to
+     load the large one. It had not -- it had never been asked for it. */
+  /* The stage is exactly the middle plate: it has no size of its own, so the
+     photograph you are looking at is centred in the window the way it was when
+     it was the only one there, and the other two hang off its edges. Anchoring
+     them to the stage rather than laying all three out in a row is what keeps
+     that true -- three plates in a flex row centre the ROW, which puts the
+     middle one off-centre by half the difference between its neighbours. */
+  #full .stage { position: relative; }
+  #full .plate.side {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  /* The gutter between them. Small: it is the only black the swipe can show,
+     and at 92vw of photograph there is not much room for it anyway. */
+  #full .plate.before { right: calc(100% + var(--gap)); }
+  #full .plate.after  { left:  calc(100% + var(--gap)); }
+  #full .plate[hidden] { display: none; }
+  /* THE NEIGHBOURS ARE BLACK, and they are loaded, positioned and sized while
+     being black. Nothing shows past the edge of the photograph you opened --
+     the second plate exists so that there is something to BRING UP as it
+     arrives, not so that there is something to look at beside the picture.
+     What the swipe reveals is a photograph coming out of the dark, which is
+     the same move as the wall's pictures fading in off the placeholder.
+     The crossfade is driven from script, as a proportion of the distance
+     travelled, so the two are one movement and not a slide with a fade
+     over it.
+
+     pointer-events matters as much as the opacity: an invisible plate that
+     still takes clicks is a dead 92vw strip either side of the picture where
+     clicking the background does not close the view. */
+  #full .plate.side { opacity: 0; pointer-events: none; }
+  #full .plate.main { opacity: 1; }
+  #full .plate {
+    --ar: 1.5;
+    position: relative;
+    aspect-ratio: var(--ar);
+    width: min(92vw, calc(80vh * var(--ar)));
+    max-height: 80vh;
+    background-size: cover;
+    background-position: center;
+  }
+  #full .plate img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity .42s cubic-bezier(.22, 1, .36, 1);
+    -webkit-user-drag: none;
+  }
+  #full .plate img.in { opacity: 1; }
+  /* The same pair the wall uses, for the same reason: a photograph you can
+     throw sideways should look like one before you touch it. The transform and
+     opacity the swipe writes are set from script -- inline, with the duration
+     that comes off the constants at the top of the block, so the timing lives
+     in one place instead of drifting between here and there. */
+  #full .plate { cursor: grab; }
+  #full.swiping .plate { cursor: grabbing; }
+  /* Against the window and not against the picture. Inside the plate it was
+     printed across the bottom of the photograph, which is the one thing on this
+     page nothing is allowed to be printed across. */
+  /* Baseline and not centre: the caption and the arrows are the same typeface
+     at two sizes, and centring them puts the chevrons a couple of pixels above
+     the line the words sit on -- which on a page with one font and no other
+     horizontal rule is the only baseline there is. */
+  /* THREE COLUMNS, and the third one is empty. That is the whole trick, and it
+     is worth a word because a centred thing next to a left-aligned thing is
+     the layout people reach for absolute positioning to do.
+
+     The two 1fr columns are equal, so the middle one -- the arrows -- sits on
+     the centre line of the window, not of the space left over: the same line
+     the photograph above is centred on. But a `1fr` track is minmax(AUTO, 1fr)
+     and cannot be squeezed under its contents, so when the caption is wider
+     than half the row less the arrows -- a phone, a long category name -- the
+     first column simply takes what it needs and the pair is pushed across.
+     Centred where there is room, out of the way where there is not, and no
+     breakpoint anywhere in it.
+
+     The caption needs nowrap for that to work: without it the caption's
+     minimum is its longest WORD, so a narrow window wraps the words instead of
+     moving the arrows. */
+  #full .bar {
+    justify-self: stretch;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: clamp(8px, 1.2vw, 16px);
+    padding: 0 clamp(16px, 2.4vw, 30px) clamp(16px, 2.4vw, 30px);
+  }
+  #full .pager {
+    display: flex;
+    justify-content: center;
+    gap: clamp(8px, 1.2vw, 18px);
+  }
+  #full .meta {
+    margin: 0;
+    white-space: nowrap;
+    font-family: "VT323", monospace;
+    font-size: 26px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    pointer-events: none;
+  }
+  #full .meta b { color: var(--ink-3); font-weight: 400; }
+  /* The arrows are the payoff for the ordering. Everything else on this page
+     could have been built on an unordered pile of photographs; this is the one
+     place where 006 being after 005 is something you can USE.
+
+     The padding is the tap target and the negative margin takes it back out of
+     the layout: 34px of glyph is a comfortable thing to read and a small thing
+     to hit, and the gap between the two of them should be the gap between two
+     characters rather than the gap between two buttons. */
+  #full .step {
+    padding: 8px 10px;
+    margin: -8px -2px;
+    border: 0;
+    background: none;
+    font-family: "VT323", monospace;
+    font-size: 34px;
+    line-height: 1;
+    color: var(--ink-1);
+    cursor: pointer;
+    transition: color .15s ease;
+  }
+  #full .step:hover { color: var(--accent); }
+  #full .shut {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: clamp(16px, 2.4vw, 30px);
+    border: 0;
+    background: none;
+    font-family: "VT323", monospace;
+    font-size: 40px;
+    line-height: .8;
+    color: var(--text);
+    cursor: pointer;
+    transition: color .15s ease;
+  }
+  #full .shut:hover { color: var(--accent); }
+
+  /* Narrow: six words end to end do not fit a phone at any size that is still
+     legible, so the bar keeps its size and scrolls itself sideways instead.
+     It is allowed to be a surface here and only here -- the words have to be
+     reachable by the same finger that drags the wall, so the bar takes the
+     pointer and the wall below it does not have to be draggable through it.
+
+     The wall itself needs no rule: a category is one screen wide whatever the
+     screen is, and the wrap in the page has already dealt with it. What a phone
+     gets is a narrower category with more rows in it, at the same picture size
+     as everything else. */
+  @media (max-width: 700px) {
+    #gaze {
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      pointer-events: auto;
+      /* THE BAR IS MADE TO FIT HERE rather than scroll, and that is a change of
+         mind the width did not force -- the category count did. At six words it
+         could not fit a phone at any size worth reading, so it was a scrolling
+         strip and the last word or two lived off the right edge. At four it
+         fits, and fitting is worth a great deal on this page in particular:
+         SIDEWAYS IS THE PAGING GESTURE. A bar that scrolls horizontally sits in
+         the top 64px eating exactly the swipe the world wants, and the words it
+         hides are the ones telling you the swipe is available at all.
+
+         So the size is SOLVED for the fit rather than chosen, by measuring the
+         largest whole px that still fits at each width and fitting a line under
+         all six readings. It hands a 390px phone about 20px and reaches the
+         21px cap at 410. The cap is there because the nav should not end up
+         BIGGER on a phone than the 21px it is given on a desktop, and the fit
+         alone would allow 26px by 480. Below ~310px the floor overflows and the
+         bar scrolls again, which is what the overflow above is still here for.
+
+         MEASURING THIS IS THE TRAP, and it cost two wrong answers. Every number
+         here is a VT323 metric; the page blocks on a Google Fonts stylesheet;
+         and the fallback monospace is a THIRD WIDER than VT323 (662 against 440
+         for REFLECTIONS at 100px). So a probe that measures before the face has
+         landed reads the bar half again too wide and solves for a font a third
+         too small. `document.fonts.check("16px VT323")` DOES NOT GATE THIS -- it
+         goes true while the nav is still laid out in the fallback. The gate that
+         works is measuring a string in VT323 and in monospace and waiting for
+         the two to differ.
+
+         The tracking pays for part of it. .14em is airy and would cost about
+         three pixels of size here; .08em keeps the letters visibly tracked and
+         buys most of what tightening can buy, where .04em costs the tracking its
+         character for one more pixel. The wipe's right inset follows it -- it is
+         the letter-spacing written twice, and the underline overshoots the last
+         letter if only one of them moves. */
+      --gazegap: .8em;
+      --gazesize: clamp(15px, calc(6.2vw - 4.4px), 24px);
+      --gazetrack: .08em;
+      padding: clamp(16px, 2.4vw, 30px) clamp(16px, 2.4vw, 30px)
+               clamp(16px, 2.4vw, 30px) 58px;
+      scrollbar-width: none;
+    }
+    #gaze::-webkit-scrollbar { display: none; }
+    body::after { height: 120px; }
+
+    /* The bottom row is a caption and two arrows on ONE line that does not
+       wrap, so at some width it has to give. 26px of VT323 is a comfortable
+       size on a laptop and simply too much of a 390px phone -- "REFLECTION ·
+       003 / 8" alone is three quarters of the screen, and the arrow after it
+       was being cut off the right edge. Smaller here and the line fits with
+       room to spare, which is also the width where the arrows stop being
+       centred and start being pushed. */
+    #full .meta { font-size: 20px; }
+    #full .step { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- The world, and everything in it. Both of these are empty in the source and
+     filled once from photo-layout.js: 125 photographs is more markup than a
+     person should be asked to keep in agreement with a baked payload by hand,
+     and the payload is the only thing that knows where any of them goes. -->
+<div id="viewport">
+  <div id="world"></div>
+</div>
+
+<nav id="gaze" aria-label="Categories"></nav>
+
+<!-- One corner now, not two. The name that sat top-right went with the rail:
+     the nav runs along the top edge, and a label at the far end of it read as a
+     seventh word in the row rather than as the page's name. -->
+<div id="corners">
+  <a class="corner tl back" href="index.html" aria-label="Back to the piece">&lt;</a>
+</div>
+
+<div id="full" hidden>
+  <!-- Three plates and not one. What moves under the finger is the stage, with
+       the photograph either side of this one already standing in it -- so a
+       swipe reveals the next photograph rather than the page's own background,
+       which is what a single plate sliding out of an empty room did. The order
+       the wall is built on is the reason this is even possible: "the one after
+       this" is a real thing here, and it is a real thing at the moment the
+       finger starts moving, not after it has finished. -->
+  <div class="stage">
+    <div class="plate side before"><img alt="" decoding="async"></div>
+    <div class="plate main"><img alt="" decoding="async"></div>
+    <div class="plate side after"><img alt="" decoding="async"></div>
+  </div>
+  <!-- The caption and the two arrows are one line at the bottom now, and that
+       is a composition decision the swipe forced rather than a tidying-up. The
+       arrows used to sit either side of the photograph at half height, which
+       is exactly where the hand now goes to push it -- a control and a gesture
+       competing for the same 300px of screen, with the control winning because
+       it is a button. Down here they are next to the count they move, nothing
+       is printed over the picture, and the whole row is inside the reach of
+       the thumb that is doing the swiping. -->
+  <div class="bar">
+    <p class="meta"></p>
+    <div class="pager">
+      <button type="button" class="step prev" aria-label="Previous photograph">&lt;</button>
+      <button type="button" class="step next" aria-label="Next photograph">&gt;</button>
+    </div>
+  </div>
+  <!-- X and not the chevron every other way-out on this site is drawn as, and
+       that is a collision rather than a preference: the two controls either
+       side of the picture are already "<" and ">", and a third "<" in the
+       corner would be the same glyph meaning "the previous photograph" in one
+       place and "no photograph" in another. So this one is a letter, at the
+       weight the chevron has, in the corner the chevron does not use. -->
+  <button type="button" class="shut" aria-label="Close">X</button>
+</div>
+
+<script src="photo-layout.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---- everything adjustable, in one place ----------------------------- */
+
+  var FRICTION  = 0.94;   // inertia decay PER 16.67ms -- not per frame, see below
+  var STOP      = 0.02;   // px/ms under which a flick is over
+  var RUBBER    = 0.55;   // how much of a past-the-edge drag actually lands
+  var SPRING    = 0.16;   // per 16.67ms, the pull back to the bound on release
+  var WHEEL     = 1.0;    // trackpad gain; 1 is one page pixel per reported one
+  var DRAG_SLOP = 6;      // px of travel under which a drag was a click
+  var DRAG_TIME = 400;    // ms over which it was a drag even if it did not move
+  var VEL_WIN   = 80;     // ms of pointer history a flick's speed is taken from
+  var CULL_STEP = 160;    // px of travel between cull passes
+  var CULL_IN   = 0.60;   // load within this many viewports of the edge
+  var CULL_OUT  = 1.40;   // drop past this -- hysteresis, or the boundary chatters
+  var PAGE_EASE = 0.19;   // per 16.67ms, the slide to the category you asked for
+  var PAGE_TRIP = 50;     // px of sideways travel that means "the next one"
+  var PAGE_AXIS = 0.7;    // sideways must beat this much of the gesture's vertical
+  var PAGE_REST = 220;    // ms of sideways quiet before that counts as a NEW swipe
+  var PAGE_DROP = 0.8;    // fall this far under the peak and the gesture is spent
+  var PAGE_RAMP = 110;    // ms before that may be believed; a swipe's own ramp
+  var PAGE_RISE = 1.15;   // then climb back over it and something new is pushing
+  var PAGE_HALF = 900;    // ms half-life of that envelope; outlasts ANY tail
+  var PAGE_TURN = 1.06;   // a tail that stops falling by this much is being pushed
+  var PAGE_TURNS = 2;     // ...for this many events running, so jitter cannot
+  var PAGE_MIN  = 2.5;    // px, so the envelope's last gasp cannot restart it
+  var FLICK     = 0.55;   // px/ms sideways that means it regardless of distance
+
+  /* ---------------------------------------------------------------------- */
+
+  var L = window.PHOTO_LAYOUT;
+  if (!L) return;
+
+  var viewport = document.getElementById("viewport");
+  var world    = document.getElementById("world");
+  var gaze     = document.getElementById("gaze");
+
+  var items = [];          // every photograph, flat, in payload order
+  var cats  = [];          // { key, label, cx, cy, btn, items }
+
+  /* ---- building it once, laying it out on every resize -----------------
+     The split is the whole of how this page works now. build() makes 125
+     elements and never touches a coordinate; layout() writes every coordinate
+     and never makes an element. build() runs once; layout() runs whenever the
+     window changes shape, because the shape of the window is an INPUT to the
+     layout in a way it never used to be.
+
+     What changed: a category is exactly one screen wide, and the wall is a
+     column grid. layout.py can bake neither, because both are answers to how
+     wide the window is -- 1512 here, 1600 on the display beside it, 390 on a
+     phone. What did NOT move is the decision the grid is made of. The column
+     count, where it drops to two, how wide the grid may get and the gutter all
+     come out of the payload, so this file still cannot disagree with layout.py
+     about what the grid IS -- only about where this particular window puts it. */
+
+  var COLS = L.cols, COLS_N = L.colsn, NARROW = L.narrow;
+  var MAXW = L.maxw, GUT = L.gut;
+  // The gutter's ramp. GUT itself is recomputed every layout() from the window
+  // width, so these three are the constants and GUT is the working value.
+  var GUT_N = L.gut, GUT_W = L.gutwide, GUT_B = L.gutband;
+
+  /* Narrow gutter at the cramped end, wide at the roomy one, straight line
+     between. It is a ramp and not a breakpoint because there is no width at
+     which the right answer jumps -- and because a step in the gutter is plainly
+     visible to anyone dragging a window edge across it, where a ramp is not.
+
+     The band is the grid's own range, NARROW to MAXW: below NARROW the grid has
+     already dropped a column and is as cramped as it gets, above MAXW it has
+     stopped growing and there is no further room to spend. Rounded, so the gaps
+     stay on whole pixels the way every other number the wall is built from
+     does. */
+  function gutterFor(w) {
+    if (w <= GUT_B[0]) return GUT_N;
+    if (w >= GUT_B[1]) return GUT_W;
+    return Math.round(GUT_N + (GUT_W - GUT_N) *
+                      (w - GUT_B[0]) / (GUT_B[1] - GUT_B[0]));
+  }
+
+  function tierFor(w) {
+    // Cap the ratio at 2. A 3x phone would otherwise ask for the 2400px file
+    // for every picture on the wall, which is 46 MB of grid.
+    var want = w * Math.min(window.devicePixelRatio || 1, 2);
+    var t = L.tiers;
+    for (var i = 0; i < t.length; i++) if (t[i] >= want) return t[i];
+    return t[t.length - 1];
+  }
+
+  function build() {
+    var frag = document.createDocumentFragment();
+    for (var c = 0; c < L.cats.length; c++) {
+      var cat = L.cats[c];
+      var box = document.createElement("div");
+      box.className = "cluster";
+      box.setAttribute("data-cat", cat.key);
+
+      var mine = [];
+      for (var i = 0; i < cat.items.length; i++) {
+        var it = cat.items[i];
+        var el = document.createElement("div");
+        el.className = "pic";
+        // A real control, not a div that happens to answer clicks. 125 stops in
+        // the tab order is a lot, but the alternative is a gallery that cannot
+        // be opened without a pointer -- and it is what gives the full-screen
+        // view somewhere to hand focus back to when it closes.
+        el.tabIndex = 0;
+        el.setAttribute("role", "button");
+        el.setAttribute("aria-label",
+                        cat.label + ", photograph " + it.n + " of " + cat.items.length);
+        el.style.backgroundImage =
+          "url(data:image/webp;base64," + it.q + ")";
+
+        var img = document.createElement("img");
+        img.alt = "";
+        img.decoding = "async";
+        el.appendChild(img);
+        box.appendChild(el);
+
+        var rec = {
+          el: el, img: img, cat: c, n: it.n, f: it.f, q: it.q, t: it.t,
+          ar: it.ar, w: 0, h: 0, x: 0, y: 0,
+          src: null, on: false
+        };
+        el.__pic = rec;
+        items.push(rec);
+        mine.push(rec);
+      }
+
+      frag.appendChild(box);
+
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = cat.label;
+      btn.setAttribute("data-cat", String(c));
+      gaze.appendChild(btn);
+
+      cats.push({ key: cat.key, label: cat.label, btn: btn, items: mine, h: 0 });
+    }
+    world.appendChild(frag);
+  }
+
+  /* ---- the grid ---------------------------------------------------------
+     Three columns of one fixed width, two below NARROW. Every photograph is
+     exactly one column wide and as tall as its aspect makes it, and each goes
+     into whichever column is shortest when its turn comes. Both edges are
+     flush; what is ragged is the BOTTOM, where the three columns end at
+     slightly different depths.
+
+     Shortest-column, and not three columns filled in turn, is the only real
+     choice in here, and it was measured rather than assumed. Filling the three
+     columns in rotation leaves them ending up to 462px apart on `club` -- three
+     consecutive portraits put one column far ahead, and nothing afterwards ever
+     pulls it back. Shortest-column takes that to 186px, and 283px is the worst
+     any category does. A wall is looked at rather than read line by line, so
+     the bottom is the edge worth keeping level.
+
+     What it costs in principle is the numbering: picture 12 may sit above
+     picture 11 in the column to its right, because the column it landed in was
+     further up. On these 125 photographs that never actually happens -- the
+     gaps between columns stay small next to the height of a photograph -- but
+     it is a property of this set and not a guarantee of the algorithm, and
+     adding a very tall picture is what would break it. Ties go to the leftmost
+     column, which is what makes the first row of every category read 1, 2, 3.
+
+     A PHOTOGRAPH IS ALWAYS EXACTLY ONE COLUMN WIDE. The fixed-height layout
+     this replaced needed a special case here -- a 250px-tall panorama is wider
+     than a phone, so it had to be capped and left alone on its row -- and
+     fixed width deletes the whole problem: the width is the column, always,
+     and the aspect only ever decides the height.
+
+     The grid is at most MAXW wide. Under the cap it starts at PAD, level with
+     the chevron in the corner; over it, it centres in the window -- which falls
+     out of `left = (vw - cw) / 2` without a branch, because cw is vw - 2*PAD
+     until the cap bites. Beyond that a wider window means more air, not bigger
+     photographs. Under NARROW a narrower window means smaller ones, which is
+     the trade a fixed column count makes and the reason the count drops to two.
+
+     Y IS PER CATEGORY and starts at zero. The categories do not share a
+     vertical origin because you are never looking at two of them. */
+
+  var PAD = 0, TOP = 0;
+
+  function layout() {
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    // Match the chrome's own clamp(16px, 2.4vw, 30px), so that below the cap
+    // the first column starts level with the chevron in the corner. Above the
+    // cap it does not -- the grid centres and the chevron stays put -- which on
+    // a display that wide reads as a centred gallery rather than a misalignment.
+    PAD = Math.min(30, Math.max(16, vw * 0.024));
+    // The one measured number on this page. The nav's height is a fixed 32px
+    // plus two clamped paddings, so it no longer depends on whether VT323 has
+    // landed -- but it is still a number the stylesheet owns and this file does
+    // not, and reading it is a great deal cheaper than keeping the clamp in two
+    // places. It is read ONCE per resize, never in a frame, so it cannot cost a
+    // layout during a drag.
+    TOP = gaze.offsetHeight + PAD;
+
+    // Before anything is measured from it: the gutter is a function of the
+    // window now, and both the column width and the vertical rhythm below come
+    // off this line.
+    GUT = gutterFor(vw);
+
+    var cols = vw <= NARROW ? COLS_N : COLS;
+    var cw   = Math.min(MAXW, Math.max(1, vw - PAD * 2));
+    var colW = Math.max(1, (cw - (cols - 1) * GUT) / cols);
+    // PAD while the cap is slack, centred once it bites. One expression.
+    var left = Math.round((vw - cw) / 2);
+    // Every photograph on the wall is this many pixels wide. Rounded once, here,
+    // so all three columns are the same integer width and not three roundings
+    // of the same float.
+    var w = Math.max(1, Math.round(colW));
+
+    for (var c = 0; c < cats.length; c++) {
+      var mine = cats[c].items;
+      var ox = c * vw + left;
+      // How deep each column has got. Rebuilt per category: the categories do
+      // not share a vertical origin.
+      var depth = [];
+      for (var k = 0; k < cols; k++) depth.push(TOP);
+
+      for (var i = 0; i < mine.length; i++) {
+        var p = mine[i];
+        // Shortest column, leftmost on a tie. cols is 2 or 3, so this is a
+        // one-or-two-iteration loop and not worth a heap for.
+        var s = 0;
+        for (var k2 = 1; k2 < cols; k2++) if (depth[k2] < depth[s]) s = k2;
+
+        var h = Math.max(1, Math.round(w / p.ar));
+        p.x = ox + Math.round(s * (colW + GUT));
+        p.y = Math.round(depth[s]);
+        p.w = w;
+        p.h = h;
+        depth[s] += h + GUT;
+
+        p.el.style.left   = p.x + "px";
+        p.el.style.top    = p.y + "px";
+        p.el.style.width  = w + "px";
+        p.el.style.height = h + "px";
+
+        // A tier the file actually has. Two photographs in the set are smaller
+        // than 1520px across and six are smaller than 2400, so asking for the
+        // tier the box WANTS rather than the tier that exists is a broken
+        // picture on exactly those files at exactly one device pixel ratio --
+        // which is the kind of thing that ships. derive.py records what it
+        // wrote; this respects it.
+        var want = tierFor(w), have = p.t[0];
+        for (var k3 = 0; k3 < p.t.length; k3++) if (p.t[k3] <= want) have = p.t[k3];
+        if (want > p.t[p.t.length - 1]) have = p.t[p.t.length - 1];
+        var src = "photos/w" + have + "/" + p.f + ".webp";
+        // Only swap a loaded picture's file if the tier actually changed --
+        // a resize that does not cross a tier boundary must not re-request 125
+        // images, and dragging a window edge fires this continuously.
+        if (p.src !== src) {
+          p.src = src;
+          if (p.on) { p.img.src = src; }
+        }
+      }
+
+      // The deepest column, less the gutter its last picture added, plus the
+      // padding that gives the wall a floor.
+      var deep = depth[0];
+      for (var k4 = 1; k4 < cols; k4++) if (depth[k4] > deep) deep = depth[k4];
+      cats[c].h = Math.round(deep - GUT + PAD);
+    }
+
+    world.style.width  = (cats.length * vw) + "px";
+    var tall = 0;
+    for (var j = 0; j < cats.length; j++) tall = Math.max(tall, cats[j].h);
+    world.style.height = tall + "px";
+  }
+
+  /* ---- where we are ----------------------------------------------------
+     Two numbers, and they are not the same KIND of number any more.
+
+     `page` is which category you are on: an integer, 0..5, and the only
+     horizontal state there is. Sideways is a command, not a pan -- a drag past
+     a threshold means "the category to the side" and the viewport flies there.
+     There is no resting position between two categories, which is why the lit
+     word in the nav can be exactly this number and never a nearest-centre
+     guess.
+
+     `py` is how far down the current category you are, in px, and it is a real
+     continuous pan with inertia and a band at both ends. It resets to zero when
+     the page changes, so a category always opens at its first row.
+
+     `curX` is not state, it is the animation: where the horizontal transform
+     has actually got to on its way to `page * vw`. Keeping it here rather than
+     in a CSS transition is what preserves the rule that one rAF writes one
+     transform and nothing else touches it -- a CSS transition on the same
+     property would be a second writer, and the vertical pan would fight it. */
+
+  var page = 0, curX = 0, py = 0, vy = 0;
+  var vw = 0, vh = 0;
+
+  function maxY() { return Math.max(0, cats[page].h - vh); }
+  function clampY(v) { return v < 0 ? 0 : (v > maxY() ? maxY() : v); }
+
+  function draw() {
+    world.style.transform =
+      "translate3d(" + (-curX) + "px," + (-py) + "px,0)";
+  }
+
+  // Returns whether the page actually changed. sideways() needs that to know
+  // if the input was consumed; at either end of the rail it was not.
+  function goTo(i, instant) {
+    i = i < 0 ? 0 : (i > cats.length - 1 ? cats.length - 1 : i);
+    if (i === page && !instant) return false;
+    // Which way the accent travels. Set before the attribute moves, so the
+    // outgoing bar is already anchored on the right end when it starts to
+    // empty. Not touched when the page does not actually change -- the opening
+    // goTo(0, true) must not decide a direction for the first real move.
+    if (i !== page) gaze.classList.toggle("leftward", i < page);
+    if (page >= 0 && cats[page]) cats[page].btn.removeAttribute("aria-current");
+    page = i;
+    cats[page].btn.setAttribute("aria-current", "true");
+    // Reset to the top of the arriving category, and do it NOW rather than on
+    // arrival: py is where the page is, the transform is only catching up, so
+    // both components travel together and the category lands square.
+    py = 0; vy = 0;
+    if (instant) curX = page * vw;
+    draw();
+    cull();
+    return true;
+  }
+
+  /* ---- the cull --------------------------------------------------------
+     Every picture is already in the DOM. This decides only which of them have a
+     src, because the thing being rationed is not elements -- 125 contained
+     absolute divs cost nothing -- it is DECODED IMAGE MEMORY. All 125 at the
+     760 tier is about 190 MB of bitmap, and at 1520 it is four times that.
+
+     Paging made this simpler than it was. It used to measure a 2D distance
+     against a world where any wall could be near any other; now the horizontal
+     question is answered by an integer -- this page and its two neighbours --
+     and only the vertical one is a range. The neighbours are held in memory
+     unloaded-to-loaded so that a sideways flick arrives at a wall that is
+     already there rather than one that starts loading on landing.
+
+     It reads its own numbers and never the DOM. There is no
+     getBoundingClientRect in the frame path, so this cannot force a layout no
+     matter how often it runs -- which is what lets it run every frame while
+     there is still something to load and stop dead when there is not. */
+
+  var lastCullY = NaN, lastCullP = -1, pending = true;
+
+  function cull() {
+    var iny0 = py - CULL_IN * vh, iny1 = py + vh + CULL_IN * vh;
+    var oy0 = py - CULL_OUT * vh, oy1 = py + vh + CULL_OUT * vh;
+    var my = py + vh / 2;
+
+    var best = null, bestD = Infinity, waiting = 0;
+    for (var i = 0; i < items.length; i++) {
+      var p = items[i];
+      var near = Math.abs(p.cat - page) <= 1;
+      if (p.on) {
+        if (!near || p.y > oy1 || p.y + p.h < oy0) {
+          // The placeholder is a background on the parent and never goes
+          // anywhere, so dropping the file leaves the picture in place as a
+          // soft version of itself. Coming back is a fade, not a flash.
+          p.img.classList.remove("in");
+          p.img.removeAttribute("src");
+          p.on = false;
+        }
+        continue;
+      }
+      if (!near || p.y > iny1 || p.y + p.h < iny0) continue;
+      waiting++;
+      // Nearest to the middle of the window, and this page before its
+      // neighbours -- the wall you are looking at finishes before the wall you
+      // might go to next starts.
+      var d = Math.abs(p.y + p.h / 2 - my) + (p.cat === page ? 0 : 1e6);
+      if (d < bestD) { bestD = d; best = p; }
+    }
+
+    // One admission per pass. Setting src decodes off the main thread, but the
+    // texture upload and the first paint of it land on the GPU thread, and a
+    // dozen arriving together is a hitch you can see.
+    if (best) {
+      best.img.onload = function () { this.classList.add("in"); };
+      best.img.src = best.src;
+      best.on = true;
+      waiting--;
+    }
+    pending = waiting > 0;
+    lastCullY = py; lastCullP = page;
+  }
+
+  function maybeCull() {
+    var dy = py - lastCullY;
+    if (pending || page !== lastCullP || !(dy === dy) ||
+        dy * dy > CULL_STEP * CULL_STEP) {
+      cull();
+    }
+  }
+
+  /* ---- the loop --------------------------------------------------------
+     One rAF, one transform write, and nothing else in the page is allowed to
+     touch #world's transform. The wheel and pointer handlers below push into
+     py/vy/page and return; they never draw. That is what keeps the cost of an
+     input event at zero and the cost of a frame at one style write. */
+
+  var last = 0, dragging = false, running = true;
+
+  function frame(now) {
+    if (!running) return;
+    var dt = Math.min(64, now - (last || now));
+    last = now;
+    var k = dt / 16.67;
+
+    // The slide to the current page. An exponential approach rather than a
+    // duration: interrupting it needs no state, because there is no clock to
+    // rewind -- a second page change mid-slide just moves the target and the
+    // same curve carries on into it.
+    var tx = page * vw;
+    if (curX !== tx) {
+      curX += (tx - curX) * (1 - Math.pow(1 - PAGE_EASE, k));
+      if (Math.abs(tx - curX) < 0.5) curX = tx;
+    }
+
+    if (!dragging) {
+      if (vy) {
+        py += vy * dt;
+        // Time-based, and this is not fussiness. README.md records that Chrome
+        // runs this project at 120Hz on this display where Safari runs it at
+        // 60. A per-frame `v *= 0.94` therefore decays a flick TWICE AS FAST in
+        // Chrome -- the same gesture, two different pages, and the difference
+        // reads as the page being wrong rather than the constant being. There
+        // are no per-frame constants anywhere in this file.
+        vy *= Math.pow(FRICTION, k);
+        if (Math.abs(vy) < STOP) vy = 0;
+      }
+      // The band, on release. Linear resistance rather than the asymptotic
+      // curve a phone uses: cheaper, and at the overshoots a BOUNDED column
+      // actually produces the two are indistinguishable. The category ends, and
+      // it should feel like it ends.
+      var ty = clampY(py);
+      if (ty !== py) { py += (ty - py) * (1 - Math.pow(1 - SPRING, k)); vy = 0;
+                       if (Math.abs(ty - py) < 0.5) py = ty; }
+    }
+    draw();
+
+    maybeCull();
+    requestAnimationFrame(frame);
+  }
+
+  /* ---- sideways is a command ------------------------------------------
+     Horizontal input does not move anything directly. It accumulates into
+     hAcc, and when that crosses PAGE_TRIP the page changes once. That is the
+     whole of "hard paging": there is no partial state to render, so no frame
+     ever shows two categories.
+
+     The accumulator exists because the alternative -- paging on the first
+     horizontal pixel -- fires on the incidental sideways wobble of a vertical
+     trackpad scroll, and the wall jumps sideways while you are reading down it.
+     What holds that off is the gesture's own vertical total: the sideways sum
+     has to beat PAGE_AXIS of it, so a scroll that is mostly down never
+     accumulates its way across however long it runs.
+
+     ONE PAGE PER GESTURE, and hLock is the whole reason this is not trivial.
+     A trackpad swipe is not one event: macOS delivers the finger movement and
+     then a momentum tail that decays over the best part of a second, all as
+     wheel events on the same axis. A single comfortable swipe measures about
+     650px of deltaX. Against a 50px trip that is thirteen crossings, and the
+     first version of this went five categories on one flick -- it reset the
+     accumulator on each page and the tail simply filled it again. So a gesture
+     gets one page and everything after it is swallowed until the sideways
+     input has been quiet for PAGE_REST, which is what tells a momentum tail
+     from a second swipe. A pointer drag holds the lock for the whole drag,
+     since its events never go quiet until the finger lifts.
+
+     The reset is HERE and not inside goTo(), which is the other half of the
+     same bug. goTo() returns early when the page would not change, so at
+     either end of the rail it never reached its own `hAcc = 0` -- the
+     accumulator saturated against the stop, and a swipe back the other way
+     then had to unwind all of it before it did anything. Pushing against the
+     end of the rail is a thing people do; it must not leave state behind. */
+
+  var hAcc = 0, vMag = 0, hPeak = 0, hEnv = 0, hPrev = 0, hRise = 0;
+  var hDir = 0, hTrip = 0, hArm = false;
+  var hLock = false, hLast = -1e9;
+
+  /* WHO THE SIDEWAYS GESTURE IS A COMMAND TO. The wall is the default; the
+     focused view takes it over while it is open and hands it back on the way
+     out. One reader and not two, and that is worth being deliberate about:
+     everything above this line is the answer to "how do you tell a second
+     swipe from the first one's momentum tail", it took several wrong answers
+     to get to, and a copy of it living in the other script would be a second
+     place to get it wrong -- one that only a trackpad can reach, and only in a
+     view that has to be open at the time.
+
+     A copy would also be unnecessary. The two surfaces are never both live:
+     the focused view is modal and pauses the wall behind it, so at any moment
+     there is exactly one thing a swipe could mean. That is the definition of
+     something that should be one object. */
+  var hTo = null;
+
+  // A gesture in progress belongs to the surface that started it, so handing
+  // the reader over ends it. Without this, the tail of the swipe that was
+  // still running when the view opened would spend itself on the photograph.
+  function hReset(t) {
+    hAcc = 0; vMag = 0; hPeak = 0; hEnv = 0; hPrev = 0; hRise = 0;
+    hArm = false; hLock = false; hLast = (t === undefined ? -1e9 : t);
+  }
+
+  function sideways(dx, dy, t) {
+    // Nothing sideways worth reading, so nothing here has an opinion. It is not
+    // quiet either: a momentum tail wanders under a pixel per event long before
+    // it stops, and treating that as quiet would unlock mid-tail. The gesture's
+    // window is opened and kept alive by SIDEWAYS input alone -- if a long
+    // vertical scroll kept it alive, a lock spent two seconds ago would still
+    // be swallowing the swipe that comes after it.
+    var m = Math.abs(dx);
+    if (m < 0.5) return false;
+
+    var gap = t - hLast;
+    hLast = t;
+    if (gap > PAGE_REST) {
+      hLock = false; hArm = false; hRise = 0;
+      hAcc = 0; vMag = 0; hPeak = 0; hEnv = 0; hPrev = 0;
+    }
+
+    // The envelope decays by real TIME and not per event, because this page
+    // runs at 120Hz on the laptop it was written on and 60Hz elsewhere, and a
+    // per-event decay would be two different curves on the two machines.
+    //
+    // PAGE_HALF has one job and it is a one-sided one: be slower than any tail
+    // this will ever see. macOS momentum halves about every 220ms; 900 clears
+    // that by a wide margin, and it has to, because the failure is silent and
+    // ugly -- an envelope that decays faster than the tail is overtaken by the
+    // tail, which then reads as a new push and pages a second time off a single
+    // swipe. Erring long costs only that a second swipe has to be a real one.
+    hEnv *= Math.pow(0.5, gap / PAGE_HALF);
+
+    /* WAITING FOR QUIET IS NOT ENOUGH, and this is what "it misses them a lot"
+       turned out to be. The tail of a swipe keeps arriving for the best part of
+       a second, and it keeps `hLast` fresh the whole time -- so PAGE_REST never
+       elapses, and a second swipe landing anywhere inside that second hit a
+       lock that could not release. Measured against a real-length tail, the
+       second swipe was swallowed at 250ms in, at 400ms, and at 600ms. Not hard
+       to do: impossible. Swiping back the other way went the same way.
+
+       What separates the two is that A MOMENTUM TAIL ONLY EVER DECAYS. The
+       envelope above is a decaying memory of how big this gesture has been,
+       with a half-life deliberately longer than any tail's, so it stays above a
+       tail for as long as one lasts and no tail can ever climb back over it. A
+       finger on the glass can.
+
+       IT HAS TO FALL BEFORE IT MAY RISE, which is the half that is not obvious
+       and the half that was wrong on the first attempt. The lock is set the
+       moment the accumulator crosses PAGE_TRIP, and 50px is reached while a
+       real swipe is still ACCELERATING -- so the rest of its own ramp climbs
+       over the envelope and reads exactly like a second swipe. Measured, one
+       swipe moved four categories. A gesture therefore has to be seen falling
+       away from its own peak, by PAGE_DROP, before a rise is allowed to mean
+       anything. A ramp never does that; a tail does it within about a tenth of
+       a second of the peak.
+
+       A change of sign needs none of that, and is free: no tail reverses. It is
+       what makes swiping back out of a mis-swipe work at once rather than after
+       a second of waiting for someone else's momentum to finish. */
+    if (hLock) {
+      // TWO REFERENCES, and using one for both jobs is what went wrong twice.
+      // Spent is measured against the gesture's PEAK, which does not decay:
+      // against the decaying envelope, both sides fall together, the ratio
+      // barely moves, and a gesture that was physically over at 200ms did not
+      // read as spent until 570 -- by which time the next swipe had already
+      // been absorbed. Momentum halves every ~220ms, so a tail passes
+      // PAGE_DROP of its peak about a fifth of a second in, and a ramp never
+      // passes it at all.
+      // ...and not for PAGE_RAMP after the trip, whatever the numbers say. The
+      // lock is set at 50px, which a real swipe reaches while it is still
+      // ACCELERATING, so the rest of its own ramp is still to come -- and real
+      // trackpad deltas jitter enough that a rising ramp dips under 0.8 of its
+      // running peak now and then. Without this, that jitter reads as the
+      // gesture ending and the ramp that follows reads as the next swipe.
+      if (t - hTrip > PAGE_RAMP && m < hPeak * PAGE_DROP) hArm = true;
+      // A rise over the DECAYING envelope is one way out: the question there is
+      // "bigger than this tail has any business being", and the tail is a
+      // moving target. It catches a second swipe of roughly the first one's
+      // strength, immediately.
+      //
+      // IT DOES NOT CATCH A GENTLE SWIPE AFTER A HARD ONE, and nothing
+      // measuring magnitude can: a soft push riding a strong tail is smaller
+      // than the tail was a moment ago, so there is no level to compare it to.
+      // What separates them is SHAPE. A momentum tail is monotone -- it only
+      // ever falls -- so a tail that stops falling is a tail with a finger on
+      // it, however gently. Two events running, because Chrome rounds deltas to
+      // integers and one event of a tail can tick upward on rounding alone; a
+      // ramp rises for a dozen.
+      if (m > hPrev * PAGE_TURN) hRise++;
+      else if (m < hPrev) hRise = 0;
+
+      if (m > PAGE_MIN && ((hArm && (m > hEnv * PAGE_RISE || hRise >= PAGE_TURNS))
+                           || dx * hDir < 0)) {
+        hLock = false; hArm = false; hRise = 0;
+        hAcc = 0; vMag = 0; hPeak = 0;
+      }
+    }
+    hPrev = m;
+    // Both stop tracking upward once the gesture is spent. The envelope has to:
+    // a second swipe ramps up, and an envelope that followed it would climb
+    // just ahead of it and never be crossed.
+    if (!hArm) {
+      if (m > hPeak) hPeak = m;
+      if (m > hEnv) hEnv = m;
+    }
+
+    // Spent. Report false rather than true so the vertical component of a
+    // diagonal tail still pans -- the lock is on paging, not on the page.
+    if (hLock) return false;
+
+    // BOTH AXES, SUMMED OVER THE GESTURE, and this is the part that was wrong.
+    // The axis test used to be per event -- "|dx| > |dy|, or shrink the
+    // accumulator by a fifth" -- and a real sideways swipe does not pass it. A
+    // trackpad ramps: the opening events of a flick are a few pixels each and
+    // carry as much vertical drift as sideways intent, so the events that
+    // should have been BUILDING the swipe were decaying it instead, and it took
+    // a hard flick to survive its own beginning.
+    //
+    // Summing both and comparing the totals asks the question the hand is
+    // actually answering -- was THAT sideways -- and is indifferent to how any
+    // single event of it landed. It is also what keeps a vertical scroll from
+    // paging, better than the per-event test did: the sideways wobble in one
+    // random-walks around zero while the vertical total climbs by 60px an
+    // event, so the ratio pulls further away from the threshold the longer the
+    // scroll goes on, where a per-event test has to win the same argument again
+    // on every single event.
+    hAcc += dx;
+    vMag += Math.abs(dy);
+
+    if (Math.abs(hAcc) > PAGE_TRIP && Math.abs(hAcc) > vMag * PAGE_AXIS) {
+      var dir = hAcc > 0 ? 1 : -1;
+      hAcc = 0;
+      vMag = 0;
+      hDir = dir;
+      hArm = false;
+      hRise = 0;
+      hTrip = t;
+      hLock = true;
+      return hTo ? hTo(dir) : goTo(page + dir);
+    }
+    return false;
+  }
+
+  /* ---- the wheel -------------------------------------------------------
+     A trackpad reports both axes. deltaY pans down the category; deltaX is a
+     page command. A mouse reports deltaY alone, and for that there is the drag,
+     the nav, the arrow keys, and shift. */
+
+  viewport.addEventListener("wheel", function (e) {
+    // See the overscroll-behavior note in the stylesheet: this and that rule
+    // are one fix in two places, and either alone lets a hard left flick
+    // navigate the page away.
+    e.preventDefault();
+    var s = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? vh : 1);
+    var dx = e.deltaX * s * WHEEL, dy = e.deltaY * s * WHEEL;
+    if (e.shiftKey && !e.deltaX) { dx = dy; dy = 0; }
+    if (sideways(dx, dy, e.timeStamp)) return;
+    py = soft(py, dy, 0, maxY());
+    vy = 0;
+  }, { passive: false });
+
+  // Past an edge, only part of the push lands. The resistance is applied to the
+  // DELTA rather than to the position, so it compounds the way a rubber band
+  // does without any of the state a spring would need.
+  function soft(v, d, lo, hi) {
+    var n = v + d;
+    if (n < lo) return v < lo ? v + d * RUBBER : lo + (n - lo) * RUBBER;
+    if (n > hi) return v > hi ? v + d * RUBBER : hi + (n - hi) * RUBBER;
+    return n;
+  }
+
+  /* ---- the drag --------------------------------------------------------- */
+
+  var pid = null, hist = [], moved = 0, downAt = 0, downOn = null;
+
+  viewport.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0) return;
+    pid = e.pointerId;
+    viewport.setPointerCapture(pid);
+    viewport.classList.add("dragging");
+    dragging = true;
+    moved = 0;
+    hAcc = 0; vMag = 0; hPeak = 0; hEnv = 0; hPrev = 0; hRise = 0;
+    hArm = false; hLock = false; hLast = e.timeStamp;
+    downAt = e.timeStamp;
+    downOn = e.target.closest ? e.target.closest(".pic") : null;
+    hist = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
+    vy = 0;
+  });
+
+  viewport.addEventListener("pointermove", function (e) {
+    if (!dragging || e.pointerId !== pid) return;
+    var h = hist[hist.length - 1];
+    var dx = e.clientX - h.x, dy = e.clientY - h.y;
+    moved += Math.abs(dx) + Math.abs(dy);
+    // Dragging left means going right, the way it does on every other surface.
+    if (!sideways(-dx, -dy, e.timeStamp)) py = soft(py, -dy, 0, maxY());
+    hist.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+    // Only the last VEL_WIN of it is ever wanted; keeping the whole gesture is
+    // a leak on a long drag and the old samples are never read.
+    while (hist.length > 2 && e.timeStamp - hist[0].t > VEL_WIN) hist.shift();
+  });
+
+  function endDrag(e) {
+    if (!dragging || e.pointerId !== pid) return;
+    dragging = false;
+    viewport.classList.remove("dragging");
+    try { viewport.releasePointerCapture(pid); } catch (err) {}
+    pid = null;
+
+    // The velocity of the last ~80ms, not of the last event. A single trailing
+    // sample -- and there is nearly always one, because a finger stops before
+    // it lifts -- makes a hard flick come out slow at random, which reads as
+    // the page ignoring you rather than as a sampling mistake.
+    var a = hist[0], b = hist[hist.length - 1], dt = b.t - a.t;
+    var fx = 0;
+    if (dt > 8) { vy = -(b.y - a.y) / dt; fx = -(b.x - a.x) / dt; }
+    else { vy = 0; }
+
+    // A flick sideways pages even if it did not travel PAGE_TRIP: a fast short
+    // gesture is a command, and requiring the distance as well as the speed
+    // makes the page feel like it is resisting you.
+    //
+    // Only if the drag has not already spent its page. Without the lock check
+    // a long fast drag pages once on the way and again on release, which is
+    // the same two-for-one this whole section exists to stop.
+    if (!hLock && Math.abs(fx) > FLICK && Math.abs(fx) > Math.abs(vy)) {
+      vy = 0;
+      goTo(page + (fx > 0 ? 1 : -1));
+    }
+    hAcc = 0; vMag = 0; hPeak = 0; hEnv = 0; hPrev = 0; hRise = 0;
+    hArm = false; hLock = false;
+
+    if (moved < DRAG_SLOP && e.timeStamp - downAt < DRAG_TIME && downOn) {
+      vy = 0;
+      if (window.__openFull) window.__openFull(downOn.__pic);
+    }
+    downOn = null;
+  }
+  viewport.addEventListener("pointerup", endDrag);
+  viewport.addEventListener("pointercancel", endDrag);
+
+  /* ---- the nav ---------------------------------------------------------- */
+
+  world.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var p = e.target.closest ? e.target.closest(".pic") : null;
+    if (!p) return;
+    e.preventDefault();
+    if (window.__openFull) window.__openFull(p.__pic);
+  });
+
+  gaze.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-cat]");
+    if (b) goTo(parseInt(b.getAttribute("data-cat"), 10));
+  });
+
+  /* ---- keys ------------------------------------------------------------- */
+
+  document.addEventListener("keydown", function (e) {
+    if (document.getElementById("full").classList.contains("open")) return;
+    // Left and right are the same command the sideways drag is, which is the
+    // point of hard paging: there is one way to move between categories and
+    // the keyboard is not a worse version of it.
+    if (e.key === "ArrowLeft")  { e.preventDefault(); goTo(page - 1); return; }
+    if (e.key === "ArrowRight") { e.preventDefault(); goTo(page + 1); return; }
+    if (e.key === "ArrowUp" || e.key === "ArrowDown" ||
+        e.key === "PageUp" || e.key === "PageDown" ||
+        e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      var step = (e.key === "PageUp" || e.key === "PageDown") ? 0.9
+               : (e.shiftKey ? 0.9 : 0.35);
+      if (e.key === "Home") py = 0;
+      else if (e.key === "End") py = maxY();
+      else py = clampY(py + (e.key === "ArrowUp" || e.key === "PageUp" ? -1 : 1)
+                            * vh * step);
+      vy = 0;
+    }
+  });
+
+  /* ---- the window changing shape ---------------------------------------
+     Coalesced to one frame, which is about.html's pattern and about.html's
+     reason: a drag across the screen fires this continuously.
+
+     THIS ONE RE-LAYS OUT, where the old one explicitly did not. That comment
+     used to read "the world is in world pixels and does not care how big the
+     window is", and it was true: every box was baked. A category is one screen
+     wide now, so the window's width is an input to the wrap and this is where
+     the wrap is re-run. It is still one pass over 125 items writing four style
+     properties each, once per animation frame at worst, which is cheap enough
+     that coalescing is the only protection it needs. */
+
+  // Re-wrap, and put the reader back where they were.
+  //
+  // How far DOWN the category they were, as a fraction, not which pixel.
+  //
+  // There is no better answer available under a column grid. Resizing changes
+  // the column width, so every photograph changes size and none of them is
+  // where it was -- there is no row pitch to hold the way there was under the
+  // fixed-height rows this replaced, and no picture to keep under their eye
+  // because the picture is a different picture now. Holding the fraction at
+  // least keeps a wall you were halfway down halfway down.
+  //
+  // Except at the top, which is held EXACTLY. A fraction of a height that just
+  // changed is only approximately where you were; zero is exactly where you
+  // were, and the top of a wall is a place you can see you are not at.
+  //
+  // This used to be load-bearing for a different reason: TOP comes off the
+  // nav's measured height, the nav's height was whatever its text came out as,
+  // and it grew a few px when VT323 landed -- so every category opened three
+  // pixels scrolled, on the font. The bar has an explicit height now, for the
+  // chevron's sake rather than this one, and `gaze.offsetHeight` no longer
+  // moves at all. The guard stays because the resize case is real on its own.
+  function relayout() {
+    var atTop = py <= 0.5;
+    var frac = (py + TOP) / Math.max(1, cats[page].h);
+    layout();
+    py = atTop ? 0 : clampY(frac * cats[page].h - TOP);
+    curX = page * vw;
+    draw();
+    cull();
+  }
+
+  var resizing = 0;
+  window.addEventListener("resize", function () {
+    if (resizing) return;
+    resizing = requestAnimationFrame(function () {
+      resizing = 0;
+      relayout();
+    });
+  });
+
+  // Park the clock when nobody is looking. Same argument index.html makes for
+  // the vine, and about.html makes by having no clock at all.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { running = false; }
+    else if (!running) { running = true; last = 0; requestAnimationFrame(frame); }
+  });
+
+  // The full-screen view parks it too, from its own script -- panning behind an
+  // opaque overlay is work nobody can see.
+  window.__pause = function (on) {
+    if (on) { running = false; }
+    else if (!running) { running = true; last = 0; requestAnimationFrame(frame); }
+  };
+  window.__cats = cats;
+  // The reader itself, and the switch for who it answers to. The focused view
+  // has no wheel listener of the wall's to inherit -- #full is a sibling of
+  // #viewport, not a child, so a swipe over the overlay never reaches the one
+  // below -- and needs both halves: this to read the gesture, and its own
+  // listener to feed it.
+  window.__sideways = sideways;
+  window.__sidewaysTo = function (fn) { hTo = fn; hReset(); };
+
+  /* ---- start ------------------------------------------------------------ */
+
+  build();
+  layout();
+  // Open on the first category, at its first row. There is no world origin to
+  // open at any more -- the origin IS the first category's first row.
+  /* ---- ?debug -----------------------------------------------------------
+     Two sliders for the two ends of the gutter ramp, because the gutter is the
+     one grid number that is a judgement rather than a derivation -- 12px and
+     35px are both defensible and look nothing alike, and neither is reachable
+     by arithmetic from anything else on the page.
+
+     Two and not one because the whole point of the ramp is that the right
+     answer differs at the ends, so a single slider would be dialling a number
+     that does not exist. The readout shows what THIS window is actually
+     getting, which is the interpolation between them.
+
+     It writes the same vars layout() already reads every pass, so there is no
+     second source of truth: relayout() recomputes precisely what a window
+     resize would. Nothing persists, deliberately -- the numbers live in
+     layout.py and this only finds them.
+
+     Gated on the query string, so for a real visitor the whole block is one
+     regex and nothing else. */
+  if (/[?&]debug\b/.test(location.search)) {
+    var dbg = document.createElement("div");
+    dbg.id = "debug";
+    dbg.style.cssText =
+      "position:fixed;right:14px;bottom:14px;z-index:90;background:#000;" +
+      "border:1px solid var(--ink-0);padding:9px 11px 8px;color:var(--ink-2);" +
+      "font:20px/1.35 VT323,monospace;pointer-events:auto;width:250px";
+    dbg.innerHTML =
+      '<div style="color:var(--ink-1)">gutter at <b id="dbgnow" ' +
+      'style="color:var(--accent);font-weight:400"></b></div>' +
+      '<label style="display:block;margin-top:7px;color:var(--ink-1)">narrow ' +
+      '<b id="dbgnv" style="color:var(--ink-3);font-weight:400"></b>px' +
+      '<input id="dbgn" type="range" min="0" max="60" step="1" ' +
+      'style="width:100%;margin:2px 0 0;accent-color:var(--accent)"></label>' +
+      '<label style="display:block;margin-top:4px;color:var(--ink-1)">wide ' +
+      '<b id="dbgwv" style="color:var(--ink-3);font-weight:400"></b>px' +
+      '<input id="dbgw" type="range" min="0" max="60" step="1" ' +
+      'style="width:100%;margin:2px 0 0;accent-color:var(--accent)"></label>' +
+      '<div id="dbgc" style="color:var(--ink-0);font-size:18px;margin-top:5px"></div>';
+    document.body.appendChild(dbg);
+    var $n = dbg.querySelector("#dbgn"), $w = dbg.querySelector("#dbgw");
+    var $nv = dbg.querySelector("#dbgnv"), $wv = dbg.querySelector("#dbgwv");
+    var $now = dbg.querySelector("#dbgnow"), $c = dbg.querySelector("#dbgc");
+    var dbgShow = function () {
+      $nv.textContent = GUT_N;
+      $wv.textContent = GUT_W;
+      $now.textContent = GUT + "px  (" + vw + "px wide)";
+      // What the gutter costs, which is the number worth watching: on a grid of
+      // fixed-width columns it comes straight out of the picture.
+      var cols = vw <= NARROW ? COLS_N : COLS;
+      var cw = Math.min(MAXW, Math.max(1, vw - PAD * 2));
+      $c.textContent = cols + " cols  " +
+        Math.round((cw - (cols - 1) * GUT) / cols) + "px wide  ->  layout.py";
+    };
+    var dbgSet = function () {
+      GUT_N = +$n.value;
+      GUT_W = +$w.value;
+      relayout();
+      dbgShow();
+    };
+    $n.value = GUT_N;
+    $w.value = GUT_W;
+    dbgShow();
+    $n.addEventListener("input", dbgSet);
+    $w.addEventListener("input", dbgSet);
+    // The wall is draggable everywhere; the panel must not pan it.
+    dbg.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+    dbg.addEventListener("wheel", function (e) { e.stopPropagation(); },
+                         { passive: true });
+    window.addEventListener("resize", function () { setTimeout(dbgShow, 60); });
+  }
+
+  goTo(0, true);
+  document.body.classList.add("ready");
+  requestAnimationFrame(frame);
+
+  // The fonts the nav is set in change its height, and TOP comes off that
+  // height. Without this the wall sits where a fallback font put the bar and
+  // stays there, which is a few pixels on this page and a visible step on a
+  // slow connection.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(relayout);
+  }
+})();
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---- one photograph, at the size it was taken for --------------------
+     The wall is a way of finding a photograph; this is the only place on the
+     page where you are actually looking at one. It sits over the world rather
+     than replacing it -- the world keeps its scroll position, its loaded
+     pictures and its place in the tour, and gets them back untouched.
+
+     Left and right step through the category IN ITS OWN ORDER, and that is the
+     whole return on the layout having respected that order in the first place.
+     Everything else here could have been built on an unordered pile. */
+
+  var full  = document.getElementById("full");
+  var stage = full.querySelector(".stage");
+  var meta  = full.querySelector(".meta");
+  var L     = window.PHOTO_LAYOUT;
+
+  /* The three plates, by the job each is doing rather than by where it sits in
+     the markup -- because the jobs move and the elements do not. A swipe
+     RENAMES them: the plate that was on the right becomes the middle one, the
+     middle one becomes the left one, and the one that fell off the back is
+     recycled as the new far side.
+
+     That is the whole reason this is a rotation and not a repaint. Repainting
+     the middle plate with the next photograph would hand a fresh src to an
+     <img> whose file is already decoded and on screen, and the fade from the
+     placeholder would run again -- a photograph you have been looking at for
+     300ms going soft and sharpening again at the end of the swipe. Moving the
+     name instead touches nothing the browser has already done. */
+  var slot = {
+    before: full.querySelector(".plate.before"),
+    main:   full.querySelector(".plate.main"),
+    after:  full.querySelector(".plate.after")
+  };
+
+  var cur = null, from = null, keyed = false;
+
+  /* ---- the swipe, and the ceiling on it --------------------------------
+     The arrows are the mouse's answer and the arrow keys are the keyboard's.
+     Neither is what a hand reaches for. A hand asks for the next photograph by
+     pushing this one aside, and it has two ways of saying so:
+
+       - ON GLASS, a finger on the photograph. Pointer events, below.
+       - ON A TRACKPAD, two fingers sideways. That is not a drag at all -- it
+         arrives as wheel deltaX, the browser's own back-navigation gesture,
+         and it comes with a momentum tail that goes on reporting for the best
+         part of a second after the fingers have lifted. The wall solved that
+         once already and the solution is the hardest thing in this file, so
+         this borrows it rather than repeating it: window.__sideways reads the
+         gesture and __sidewaysTo says the answer comes here while the view is
+         open. See the long comment over sideways() in the other script.
+
+     A mouse drag is deliberately NOT one of them. A mouse has the arrows, the
+     keys, and a click on the ground to leave by, and making the ground draggable
+     as well only puts a way to mis-fire on top of a way to leave.
+
+     Every number here exists to hold the gesture DOWN. A wall is a place you
+     can be thrown across -- it has 125 pictures in it and momentum is how you
+     cover them. One photograph at the size of the window is the opposite: it
+     is a place you have arrived at, and a flick that carried you four deep
+     would be the view losing the thing you opened it for. So:
+
+       - the plate never travels further than SW_MAX, however hard it is
+         pulled -- the rubber approaches that asymptotically, so there is no
+         corner in the feel where a clamp bites;
+       - the gesture is decided ON RELEASE and spends itself once. There is no
+         velocity left running when the finger lifts, which means no way for
+         one throw to page twice;
+       - what follows is a fixed slide of SW_OUT px, not a decaying flick. The
+         speed of the throw chooses the direction and nothing else.
+
+     The wall's flick math (hEnv, hPeak, PAGE_TURNS, all of it) exists because
+     a trackpad's inertia tail keeps reporting after the fingers are up and
+     something has to tell a new push from an old one's echo. A touch drag
+     under pointer capture has none of that: pointerup is the end of it. */
+
+  var SW_FREE  = 70;    // px the plate follows the finger one for one
+  var SW_MAX   = 130;   // px it can reach at all -- the rubber's asymptote
+  var SW_TRIP  = 64;    // px of travel on release that means "the next one"
+  var SW_FLICK = 0.5;   // px/ms that means it without the distance
+  var SW_SLOP  = 8;     // px of travel under which the gesture was a tap
+  var SW_WIN   = 80;    // ms of pointer history the flick's speed comes from
+  var SW_SLIDE = 340;   // ms of the slide to the neighbouring photograph
+  var SW_BACK  = 260;   // ms of the spring back when it was not enough
+  var SW_EASE  = "cubic-bezier(.22, 1, .36, 1)";  // the page's one curve
+
+  function tier(rec) {
+    // The plate is sized by the window, not by the box on the wall, so that is
+    // what the file has to cover. Same DPR cap as the grid.
+    //
+    // The SMALLEST tier that covers it, and the largest available when none
+    // does. Written the other way round -- the largest tier at or below what is
+    // wanted -- it served the 760px file into a 1290px plate on every window
+    // narrower than about 1650px, which is most of them, and the result looked
+    // exactly like a page that had failed to load the big one.
+    var want = window.innerWidth * 0.92 * Math.min(window.devicePixelRatio || 1, 2);
+    var have = rec.t[rec.t.length - 1];
+    for (var i = rec.t.length - 1; i >= 0; i--) if (rec.t[i] >= want) have = rec.t[i];
+    return "photos/w" + have + "/" + rec.f + ".webp";
+  }
+
+  // Which photograph is on a plate is the plate's own business, so it holds on
+  // to it: a plate already showing this one is left completely alone. That
+  // guard is not an optimisation, it is the thing that stops a neighbour being
+  // re-decoded at the exact moment it becomes the photograph you are looking at.
+  function dress(el, rec) {
+    var im = el.querySelector("img");
+    if (!rec) {
+      // Only ever a category of one, and then there is nothing either side.
+      el.hidden = true;
+      el.__rec = null;
+      im.removeAttribute("src");
+      return;
+    }
+    el.hidden = false;
+    if (el.__rec === rec) return;
+    el.__rec = rec;
+    var cat = L.cats[rec.cat];
+    el.style.backgroundImage = "url(data:image/webp;base64," + rec.q + ")";
+    // The ratio goes on the PLATE and not on the image, or the placeholder
+    // behind a picture that has not landed yet is the wrong shape -- which is
+    // worse than no placeholder at all, because it moves when the picture
+    // arrives. The box is right before there is anything in it.
+    // The aspect comes off the payload and not off the box on the wall. They
+    // agree -- the box IS one column wide by column/ar tall -- but the box is a
+    // rounded integer and rounding a 495px width through a 2.845 panorama is a
+    // pixel of error in the plate's shape, which at full screen is a visible
+    // seam of background down one edge.
+    el.style.setProperty("--ar", rec.ar);
+    im.classList.remove("in");
+    im.onload = function () { this.classList.add("in"); };
+    im.src = tier(rec);
+    im.alt = cat.label + ", photograph " + rec.n;
+  }
+
+  function label(rec) {
+    var cat = L.cats[rec.cat];
+    meta.innerHTML = cat.label + " &#183; <b>" +
+      (rec.n < 10 ? "00" : rec.n < 100 ? "0" : "") + rec.n +
+      "</b> / " + cat.items.length;
+  }
+
+  // Wraps. A category is a body of work and not a list with two ends -- and
+  // the alternative is an arrow that is sometimes dead, which reads as the page
+  // having stopped responding rather than as the work having run out.
+  function beside(rec, d) {
+    var mine = window.__cats[rec.cat].items;
+    if (mine.length < 2) return null;
+    var i = mine.indexOf(rec);
+    return mine[(i + d + mine.length) % mine.length];
+  }
+
+  // Everything, from cold. The two neighbours are fetched with the middle one
+  // rather than on demand, and that is a deliberate three-for-one: the swipe
+  // has to be able to show the next photograph AT THE MOMENT the finger starts
+  // moving, and a request made then would arrive long after the gesture is
+  // over. It costs two extra files on the way in and nothing after that --
+  // every swipe from here on pulls exactly one, the far side of the new
+  // neighbour, which is the same one photograph a swipe would have pulled
+  // anyway.
+  function paint(rec) {
+    cur = rec;
+    dress(slot.main, rec);
+    dress(slot.before, beside(rec, -1));
+    dress(slot.after, beside(rec, 1));
+    label(rec);
+  }
+
+  // The rename. Nothing is loaded, moved or faded here except the plate that
+  // fell off the back, which is the only one whose photograph is genuinely new.
+  function rotate(d) {
+    var to = beside(cur, d);
+    if (!to) return;
+    var recycled = d > 0 ? slot.before : slot.after;
+    if (d > 0) { slot.before = slot.main; slot.main = slot.after;  slot.after  = recycled; }
+    else       { slot.after  = slot.main; slot.main = slot.before; slot.before = recycled; }
+    cur = to;
+    slot.before.className = "plate side before";
+    slot.main.className   = "plate main";
+    slot.after.className  = "plate side after";
+    dress(recycled, beside(cur, d));
+    label(cur);
+  }
+
+  // What the arrows and the arrow keys do: the same rename, without the slide.
+  function step(d) {
+    if (!cur) return;
+    if (busy) settle();
+    rotate(d);
+  }
+
+  /* ---- the gesture ------------------------------------------------------ */
+
+  var sid = null, sx0 = 0, sy0 = 0, sdx = 0, sdy = 0, smoved = 0;
+  var shist = [], busy = false, pend = 0, tSlide = 0, ate = false;
+
+  /* Moving and fading are ONE operation, and that is the whole idea: the plate
+     leaving goes black in proportion to how far it has gone, and the one
+     arriving comes up in proportion to how far it has come. Not a slide with a
+     crossfade laid over it -- the fade IS the distance, expressed twice.
+
+     Which is also why the drag barely fades anything. A held drag is capped at
+     130px of a journey that is a whole photograph wide, so it spends about a
+     tenth of the fade: the picture dips slightly, the dark beside it stays
+     dark, and nothing of the next photograph is given away until the gesture
+     is actually committed to. */
+  function place(x) {
+    stage.style.transform = x ? "translate3d(" + x + "px,0,0)" : "";
+    var t = x ? Math.min(1, Math.abs(x) / (x < 0 ? rFwd : rBack)) : 0;
+    slot.main.style.opacity = 1 - t;
+    slot.after.style.opacity = x < 0 ? t : 0;
+    slot.before.style.opacity = x > 0 ? t : 0;
+  }
+
+  // At rest there is nothing to say: the classes carry it, and rotate() has
+  // just moved the classes onto the right elements.
+  function bare() {
+    slot.main.style.opacity = "";
+    slot.before.style.opacity = "";
+    slot.after.style.opacity = "";
+  }
+
+  function ease(ms) {
+    stage.style.transition = ms ? "transform " + ms + "ms " + SW_EASE : "none";
+    var o = ms ? "opacity " + ms + "ms " + SW_EASE : "none";
+    slot.before.style.transition = o;
+    slot.main.style.transition = o;
+    slot.after.style.transition = o;
+  }
+
+  // Both reaches, once per gesture. place() is called on every pointermove and
+  // reading a rect there would force a layout against the transform it has
+  // just written, sixty times a second, for a number that cannot change while
+  // a finger is down.
+  var rFwd = 1, rBack = 1;
+  function measure() {
+    rFwd = Math.abs(reach(1)) || 1;
+    rBack = Math.abs(reach(-1)) || 1;
+  }
+
+  // How far the stage has to travel for the neighbour to be standing where the
+  // middle plate is now. MEASURED rather than computed: it is the distance
+  // between two centres, the plates are different widths because photographs
+  // are different shapes, and the gutter between them is a clamp() in the
+  // stylesheet. Reading it back off the layout is both shorter than working it
+  // out and correct on a window size nobody thought about.
+  function reach(d) {
+    var a = slot.main.getBoundingClientRect();
+    var b = (d > 0 ? slot.after : slot.before).getBoundingClientRect();
+    return (b.left + b.width / 2) - (a.left + a.width / 2);
+  }
+
+  // Past SW_FREE the finger buys less and less of what it is pulling, and
+  // never more than SW_MAX of it in total. Exponential rather than the wall's
+  // linear RUBBER because this one has a ceiling to approach: a constant
+  // fraction of an unbounded drag is still unbounded.
+  function hold(d) {
+    var a = Math.abs(d);
+    if (a <= SW_FREE) return d;
+    var give = (SW_MAX - SW_FREE) * (1 - Math.exp(-(a - SW_FREE) / (SW_MAX - SW_FREE)));
+    return (d < 0 ? -1 : 1) * (SW_FREE + give);
+  }
+
+  /* The end of a slide, and the one thing in here that has to be exactly
+     right. At this moment the stage is parked one whole photograph off centre
+     with the arriving one sitting in the middle of the window. The rename puts
+     that plate's name to `main` and the transform comes off in the SAME
+     synchronous block -- the stage re-centres on its new middle plate by
+     exactly the distance it had been pushed, so the two cancel and not one
+     pixel moves. Split them across a frame and the photograph jumps a
+     window's width and back.
+
+     `pend` is the rename the slide owes: if anything cuts the slide short --
+     a second swipe, the view closing -- it still happens, or the gesture is
+     eaten and the page reads as having ignored a swipe it visibly accepted. */
+  function settle() {
+    clearTimeout(tSlide);
+    var d = pend; pend = 0;
+    ease(0);
+    if (d) rotate(d);
+    place(0);
+    bare();
+    stage.style.transition = "";
+    slot.before.style.transition = "";
+    slot.main.style.transition = "";
+    slot.after.style.transition = "";
+    busy = false;
+  }
+
+  // One movement now, in the direction the hand asked for, with the next
+  // photograph carried along in front of it. The ceiling that used to live in
+  // the DISTANCE is now entirely in the fact that one gesture renames the
+  // plates once: the travel is a whole photograph because that is where the
+  // next one is standing, and it is still exactly one photograph however hard
+  // the throw was.
+  function fly(d) {
+    if (!cur || !beside(cur, d)) return spring();
+    if (!busy) measure();
+    busy = true;
+    pend = d;
+    ease(SW_SLIDE);
+    // All the way, which takes the fade all the way with it.
+    place(d > 0 ? -rFwd : rBack);
+    tSlide = setTimeout(settle, SW_SLIDE);
+  }
+
+  // Not enough of a gesture. Back to centre, and no part of the throw survives.
+  function spring() {
+    busy = true;
+    ease(SW_BACK);
+    place(0);
+    tSlide = setTimeout(settle, SW_BACK);
+  }
+
+  full.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0 || !full.classList.contains("open")) return;
+    // Glass only. A trackpad's gesture is the wheel path below, and a mouse's
+    // is the arrows; this is for the hand that is actually on the picture.
+    if (e.pointerType === "mouse") return;
+    // The three controls are targets, not surfaces. A drag that starts on one
+    // of them is a shaky press on a button, not a throw.
+    if (e.target.closest && e.target.closest("button")) return;
+    // A swipe during a slide is allowed and cuts it short. Ignoring it instead
+    // would make the second of two quick swipes read as the page having
+    // stopped listening, which is exactly what the first one just proved wrong.
+    if (busy) settle();
+    sid = e.pointerId;
+    full.setPointerCapture(sid);
+    full.classList.add("swiping");
+    sx0 = e.clientX; sy0 = e.clientY;
+    sdx = 0; sdy = 0; smoved = 0; ate = false;
+    measure();
+    shist = [{ t: e.timeStamp, x: e.clientX }];
+  });
+
+  full.addEventListener("pointermove", function (e) {
+    if (e.pointerId !== sid) return;
+    // Against the START of the gesture and not against the last sample: the
+    // plate's position is where the finger has GOT to, and summing deltas
+    // there would let float error walk it off the origin over a long drag.
+    sdx = e.clientX - sx0;
+    sdy = e.clientY - sy0;
+    smoved = Math.max(smoved, Math.abs(sdx) + Math.abs(sdy));
+    place(hold(sdx));
+    shist.push({ t: e.timeStamp, x: e.clientX });
+    while (shist.length > 2 && e.timeStamp - shist[0].t > SW_WIN) shist.shift();
+  });
+
+  function endSwipe(e) {
+    if (e.pointerId !== sid) return;
+    try { full.releasePointerCapture(sid); } catch (err) {}
+    sid = null;
+    full.classList.remove("swiping");
+
+    if (smoved < SW_SLOP) { place(0); return; }
+    // It moved, so it was not a click -- and the click that follows a drag off
+    // the plate would otherwise land on the ground and close the view.
+    ate = true;
+
+    // The last SW_WIN of it, not the last event, for the reason the wall's
+    // drag gives at length: a finger slows before it lifts, and the final
+    // sample alone turns a hard flick into a slow one at random.
+    var a = shist[0], b = shist[shist.length - 1], dt = b.t - a.t;
+    var vx = dt > 8 ? (b.x - a.x) / dt : 0;
+
+    var d = 0;
+    // Dragging left brings the next one in from the right, the way a page
+    // turns, and the way the wall already pages.
+    if (Math.abs(sdx) > Math.abs(sdy)) {
+      if (Math.abs(sdx) >= SW_TRIP) d = sdx < 0 ? 1 : -1;
+      // A short fast throw is a command too -- but only one that agrees with
+      // where the finger actually went. A flick back the way it came is a
+      // gesture being taken back, and taking it back is the spring below.
+      else if (Math.abs(vx) >= SW_FLICK && vx * sdx > 0) d = vx < 0 ? 1 : -1;
+    }
+
+    if (d) return fly(d);
+    spring();
+  }
+
+  full.addEventListener("pointerup", endSwipe);
+  full.addEventListener("pointercancel", endSwipe);
+
+  /* Two fingers on a trackpad. The deltas go straight to the wall's reader,
+     which answers at most once per gesture and swallows the tail -- which is
+     this half of "limit the momentum", and the half that actually needed
+     limiting: a comfortable two-finger swipe measures about 650px of deltaX,
+     and against a 50px trip that is thirteen photographs if nothing is
+     counting. The finger path's ceiling is a distance; this one's is the
+     gesture itself.
+
+     preventDefault unconditionally, and not only when the swipe lands. Left is
+     Chrome's back-navigation on a Mac, the compositor decides it before this
+     listener is consulted, and a swipe that is being swallowed as a tail is
+     exactly the one that would otherwise leave the page. The stylesheet's
+     overscroll-behavior is already the other half of that; it is on html and
+     body, so it covers this view too. */
+  full.addEventListener("wheel", function (e) {
+    if (!full.classList.contains("open")) return;
+    e.preventDefault();
+    if (!window.__sideways) return;
+    var u = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? window.innerHeight : 1);
+    var dx = e.deltaX * u, dy = e.deltaY * u;
+    // Shift-wheel is the mouse wheel's sideways, and it is free to support:
+    // the reader cannot tell where the deltaX came from.
+    if (e.shiftKey && !e.deltaX) { dx = dy; dy = 0; }
+    window.__sideways(dx, dy, e.timeStamp);
+  }, { passive: false });
+
+  function open(rec) {
+    from = rec.el;
+    // pend first: a slide cut short by opening something else owes its swap to
+    // nobody, and paint() below is about to say what is on the plate anyway.
+    pend = 0;
+    settle();
+    full.hidden = false;
+    paint(rec);
+    // Two frames: one for `hidden` coming off so the element has a box, one for
+    // the class going on so the transition has something to run from. Setting
+    // both together means no transition at all -- the element goes from not
+    // being laid out to being open, and there is no first frame to interpolate.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { full.classList.add("open"); });
+    });
+    if (window.__pause) window.__pause(true);
+    // Sideways means this photograph now, not the next category. Claiming it
+    // also clears whatever the wall's last gesture left behind.
+    if (window.__sidewaysTo) window.__sidewaysTo(function (dir) { fly(dir); return true; });
+    full.querySelector(".shut").focus();
+  }
+
+  function close() {
+    if (!full.classList.contains("open")) return;
+    // Or the plate is still 160px off-centre and half transparent the next
+    // time the view opens, under a transition that has outlived its gesture.
+    settle();
+    full.classList.remove("open");
+    if (window.__pause) window.__pause(false);
+    // And the wall has it back -- including, deliberately, a cleared gesture:
+    // the swipe that lands as the view closes must not also page the wall.
+    if (window.__sidewaysTo) window.__sidewaysTo(null);
+    if (from) { from.focus(); from = null; }
+    cur = null;
+  }
+
+  full.addEventListener("transitionend", function (e) {
+    // Only once the fade is over, and only if it did not re-open in between.
+    // Dropping the src here is what keeps a 2400px decode from sitting in
+    // memory behind a wall of 125 more of them.
+    //
+    // e.target is checked because the plate fades too now, and its transition
+    // bubbles to exactly this listener. Without the check a swipe that lands
+    // in the same frame as a close tears the picture out from under the fade.
+    if (e.target !== full || e.propertyName !== "opacity" ||
+        full.classList.contains("open")) return;
+    full.hidden = true;
+    // Three of them now. Dropping the middle one and leaving its neighbours
+    // resident would keep two of the largest decodes on the page alive behind
+    // a wall of 125 more.
+    [slot.before, slot.main, slot.after].forEach(function (el) {
+      var im = el.querySelector("img");
+      im.removeAttribute("src");
+      im.classList.remove("in");
+      el.__rec = null;
+    });
+  });
+
+  full.addEventListener("click", function (e) {
+    // The click a drag ends with. It is aimed at wherever the finger stopped,
+    // which on a throw that started on the ground is the ground -- and the
+    // ground closes the view. Cleared on the next pointerdown either way, so a
+    // drag that never produces a click cannot eat the click after it.
+    if (ate) { ate = false; return; }
+    if (e.target.closest(".shut")) return close();
+    if (e.target.closest(".prev")) return step(-1);
+    if (e.target.closest(".next")) return step(1);
+    // A click on the ground around the picture is a click on the way out. The
+    // picture itself is not, or a mis-aimed click at an arrow closes the view.
+    if (!e.target.closest(".plate")) close();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (!full.classList.contains("open")) return;
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+  });
+
+  // The world's script owns the pointer and knows when a click was a click and
+  // not the end of a drag; it calls this rather than the other way round.
+  window.__openFull = open;
+})();
+</script>
+</body>
+</html>

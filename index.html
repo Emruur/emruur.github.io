@@ -1,70 +1,2091 @@
-<!DOCTYPE html>
-<html>
-
+<!doctype html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, user-scalable=no">
-    <link rel="stylesheet" href="styles/profile.css">
-    <link rel="stylesheet" href="styles/nav.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Misket, in ASCII</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* The whole palette, and the only place a colour is written down. Nothing
+     below this block names one. Red is spent on exactly one thing, --accent:
+     the label under the pointer, and the label the bee has landed on.
+     Everything else is black, white or a step between.
+
+     --ink-0..4 are the vine's five brightness bands and the bee's; --bloom is
+     the colour of their glow. They are the sRGB relative luminance of the
+     blue-cyan palette this page started from, so the five steps sit the same
+     distance apart as they did (see BANDS) with the hue taken out.
+
+     The page is black-background only, and that is a finding rather than an
+     omission. A character grid on white is a drawing; this one is a picture of
+     LIGHT, and everything here serves that -- five bands to get luminance
+     range, a drop-shadow bloom cheap enough to run every frame, cores at
+     --ink-4 with a 38px halo. On paper the bloom has no counterpart: a dark
+     drop-shadow is a smudge, the glyphs stay discrete, and the grid stops
+     dissolving and starts reading as text. A light theme was built twice, the
+     second time on a whole separate bake of the plant re-lit against white,
+     and the honest verdict was that it is a different artwork wearing this
+     layout rather than a theme of this one. */
+  :root {
+    --bg:     #000;
+    --text:   #ffffff;
+    --accent: #ff3131;
+    --ink-0:  #2d2d2d;
+    --ink-1:  #565656;
+    --ink-2:  #979797;
+    --ink-3:  #d9d9d9;
+    --ink-4:  #ffffff;
+    --bloom:  #d4d4d4;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);     /* the void: nothing behind the vine */
+  }
+
+  /* start, not center: the vine is attached at the top edge of its frame, and
+     that edge is pinned to the top of the window so it grows DOWN into it */
+  body { display: grid; place-items: start center; }
+
+  /* One grid, drawn once per brightness band -- see BANDS in the script. The
+     first layer is in flow and gives the stack its size; the rest sit exactly
+     on top of it, which is safe because every layer is the same monospace grid
+     at the same size, so cell (i,j) lands on the same pixel in all of them. */
+  #stack { position: relative; opacity: 0; transition: opacity .6s ease; }
+  #stack.ready { opacity: 1; }
+
+  /* The browser's default monospace, not VT323, and the ramp is the reason.
+     VT323 has no U+2219, U+25CB, U+25CF or U+25A0, so four of the eight ramp
+     glyphs were being served by the fallback -- at that font's 0.602em advance
+     inside a grid measured at VT323's 0.40em. Two things came of it, and
+     neither looked like a font problem. Every line split into runs of two
+     fonts, which is shaping work per line per layer per frame; and worse, a
+     row's columns stopped agreeing between the layers, because a row is only a
+     grid while every cell in it is one width. By column 70 the same cell sat
+     19px apart across the five -- eight cell widths, so the bright beads were
+     simply not on top of the haze they belong to.
+
+     One font is therefore not a preference, it is what makes the stack work,
+     and `monospace` is the one font guaranteed to be there. On macOS Chrome it
+     resolves to Menlo, which covers the whole ramp at a single advance; if a
+     machine ever turns up where the default does not, measure() says so in the
+     console rather than letting it go quietly wrong. Note what NOT to name
+     here: ui-monospace / SF Mono draws this ramp at three different widths.
+
+     VT323 loses nothing by going -- the ramp is all dots and no letters -- and
+     the nav below still has it, which is where its letterforms ever did work. */
+  #stack pre {
+    font-family: monospace;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    white-space: pre;
+    /* font-size, line-height and colour are all set by script */
+    font-size: 4px;
+    line-height: 1.2;
+    text-rendering: optimizeSpeed;
+    user-select: none;
+    /* Lifted off the floor so the bee has a rung to sit UNDER. The obvious way
+       to put the bee behind the vine -- z-index:-1 on the bee -- looks right and
+       is not: `html, body` both carry background:#000, and while html's
+       propagates to the canvas, BODY STILL PAINTS ITS OWN BLACK BOX. A block's
+       background paints after negative stacking contexts, so a -1 bee is buried
+       under it and simply never appears. So lift the vine instead of sinking the
+       bee. #stack is position:relative with z-index:auto and therefore forms NO
+       stacking context, which is what lets a body-level sibling interleave with
+       these layers at all -- do not give #stack a z-index. */
+    position: relative;
+    z-index: 2;
+    /* The box is buildGrid's to decide and never the text's. Every layer is
+       given an explicit width and height there, and `size` containment is what
+       makes those stick: with it, a line of text can no longer widen the <pre>
+       it sits in. That is what lets repaint() strip the trailing spaces off
+       every line -- more than half the characters on the page, and about 40%
+       of the layout cost of re-shaping them -- without the five layers coming
+       out five different widths and the vine sliding sideways as it grows.
+       `layout` and `style` keep the rest of the invalidation inside the grid
+       too, so a repaint can no longer make the nav re-lay-out its buttons. */
+    contain: size layout style;
+  }
+  #stack pre + pre { position: absolute; top: 0; left: 0; }
+  
+  #gaze {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Both scale with the window. The vine is sized off the HEIGHT, so on a
+       phone it keeps most of its width and leaves each word ~90px of side to
+       sit in: at a fixed 80px gutter every word landed off-screen. So the
+       gutter runs from 80px at 1455 down through zero at ~877 and on into the
+       vine, bottoming out at -60px by ~440 -- a word leaning into the outer
+       leaves reads better than one shrunk to fit beside them. One line each
+       rather than a breakpoint, so neither jumps as the window is dragged. */
+    --gap: clamp(-60px, 13.85vw - 121.5px, 80px);
+    --ls: .14em;
+    /* ~27px at 430 (was ~22.6), still reaching 48px by ~1370 so desktop is
+       unchanged. A line rather than a breakpoint, like --gap above. */
+    font-size: clamp(24px, 2.23vw + 17.4px, 48px);
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    z-index: 10;
+  }
+  #gaze button {
+    position: absolute;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    letter-spacing: var(--ls);
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--text);
+    cursor: pointer;
+    /* A label is not there until the growth has reached its height -- see the
+       reveal script at the foot of the file. pointer-events goes with the
+       opacity so an invisible word cannot be hovered into life early. */
+    opacity: 0;
+    pointer-events: none;
+    transition: color .15s ease, text-shadow .15s ease, opacity .7s ease;
+  }
+  #gaze button.grown { opacity: 1; pointer-events: auto; }
+  /* The label the bee has LANDED on -- lit() stamps this the moment it settles
+     and clears it the moment it leaves, so the list sits white while the bee is
+     crossing and one word answers while it is being fed at. Its own rule, ahead
+     of :hover, so a pointer still wins and still holds through the travel. */
+  #gaze button[aria-current="true"] { color: var(--accent); transition: none; }
+  /* A pointer inside the open menu is still a pointer on the word: the list
+     belongs to PROJECTS, so the word stays lit the whole time it is being read,
+     and lets go only when the pointer leaves the group. `.open` is the group's
+     hover, set by the script below -- see there for why this is not a :hover on
+     the wrapper. The bee agrees with this: its own hover zone is the group. */
+  #gaze button:hover,
+  #gaze .drop.open > button {
+    color: var(--accent);
+    text-shadow: none;
+    transition: none;
+  }
+
+  /* The underline under a lit label. A scaled pseudo-element rather than an
+     animated width, so the whole sweep is one compositor-side transform and
+     never re-lays out the nav -- which matters here because the bee is reading
+     these buttons' rects every frame to aim at them.
+
+     The direction is the point: it grows from the right edge leftward on the
+     way in (transform-origin: right) and, on the way out, the origin flips to
+     the left so it collapses leftward as well. Both halves of the gesture run
+     the same way across the word, which reads as a wipe passing through rather
+     than a bar that inflates and deflates in place. The out-origin lives on the
+     resting rule, so it is already in force by the time the hover is lost.
+
+     right is inset by the letter-spacing so the bar ends at the last letter
+     instead of trailing into the gap after it.
+
+     .42s, and three rules hold it: this bar, the corner bars, and the caret on
+     PROJECTS. The curve is a hard ease-out, so most of the travel is spent in
+     the first third and the number reads shorter than it is -- which is why a
+     duration that looks long on paper still answers the pointer immediately.
+     The caret is in the list because it is not decoration on a separate clock:
+     on a mouse, hovering PROJECTS opens the menu, so the bar sweeps and the
+     arrow turns off the same state change. Leave one at .28s and that word
+     alone finishes in two stages. */
+  #gaze button::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: var(--ls);
+    bottom: -.3em;
+    height: .15em;
+    /* the lit red, not currentColor: an unlit button is --text and fades back
+       to it over .15s, which would bleach the bar mid-collapse */
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+    /* The bar is four pixels tall and it is the only thing on this page that
+       has to move on the pointer's own frame, so it gets a layer of its own and
+       keeps it. Without will-change the transition still runs on the
+       compositor, but Chrome has to raster the bar into a NEW layer at the
+       moment the sweep starts and throw that layer away at the end -- and the
+       frame that raster lands on is, by definition, the first frame of the
+       sweep, which is the one frame it is most visible to lose. Four permanent
+       layers of 120x4px are nothing to hold; the promotion is everything to
+       skip. */
+    will-change: transform;
+  }
+  #gaze button:hover::after,
+  #gaze button[aria-current="true"]::after,
+  #gaze .drop.open > button::after {
+    transform: scaleX(1);
+    transform-origin: right center;
+  }
+
+  /* ---- the one branching word ------------------------------------------
+     The wrapper is the button's old inline placement and nothing else, so the
+     button inside it lands on the same pixel it did as an absolute box. It is
+     position:relative rather than static because the underline sweep above is
+     absolutely positioned against the BUTTON, and the menu is positioned
+     against the wrapper. */
+  #gaze .drop { position: absolute; }
+  #gaze .drop > button { position: relative; }
+
+  /* A drawn arrowhead, not a glyph: VT323 has no U+25BE, so a character here
+     would be served by the fallback at the fallback's advance -- the same
+     mixed-font problem the vine has, with the mismatch landing right beside
+     the word it belongs to. Borders have no font. currentColor ties it to the
+     label, so it goes red with the pointer and with the bee. */
+  #gaze .caret {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: .34em;
+    vertical-align: .16em;
+    border-left: .24em solid transparent;
+    border-right: .24em solid transparent;
+    border-top: .28em solid currentColor;
+    transform-origin: 50% 35%;
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+  }
+  #gaze .drop.open .caret { transform: rotate(180deg); }
+
+  /* The padding is what bridges the gap under the word: with a margin there
+     would be a strip between button and menu that belongs to neither, and a
+     pointer crossing it would leave the group and shut what it was reaching
+     for. Padding keeps the menu's hit box against the button's bottom edge and
+     the first item still sits clear of the underline.
+
+     visibility, not just opacity: a closed menu must be out of the tab order
+     as well as out of sight, and it is what takes the items off the pointer
+     too. It is transitioned with a 0s delay on the way in and the full
+     duration on the way out, so the fade gets to finish before the box goes. */
+  #gaze .menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    padding: 1em 0 0;
+    /* ~18px at 430 (was the 15px floor), 26px from ~1180 as before -- the
+       same phone-side bump the words above got */
+    font-size: clamp(17px, 1.07vw + 13.4px, 26px);
+    line-height: 1.35;
+    text-align: left;
+    /* column + gap rather than margins on the items: one number for the space
+       between them, and it holds whatever an item turns out to be */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .7em;
+    /* and the bridge has to be as wide as the word it leaves from: the list is
+       shrink-to-fit and both items are narrower than PROJECTS, so without this
+       a pointer coming down off the right half of the word would step off the
+       side of the menu on the way to it */
+    min-width: 100%;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity .2s ease, visibility 0s linear .2s;
+  }
+  /* PROJECTS sits on the left of the vine, placed by its RIGHT edge, and on a
+     phone that edge leans into the leaves. A menu pinned to it ended every item
+     in the vine, which made the list hard to read. So the menu keeps the base
+     rule's left edge and left alignment: the items start at the word's outer
+     edge and, being shorter than PROJECTS, stop short of where it meets the
+     vine. */
+  #gaze .drop.open .menu {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity .2s ease, visibility 0s;
+    /* The BOX takes the pointer, not just the items in it. #gaze is
+       pointer-events:none and hands it back one element at a time, and with
+       only the items handed it the padding above them was a strip of nothing:
+       a pointer leaving the word to go down to the list passed through it, hit
+       whatever was behind, and counted as having left the group -- so the menu
+       shut in the gap and the items were never reachable. The padding is the
+       bridge, and a bridge has to be solid. */
+    pointer-events: auto;
+  }
+
+  #gaze .item {
+    display: block;
+    color: var(--ink-2);
+    text-decoration: none;
+    white-space: nowrap;
+    pointer-events: none;      /* handed back only while the menu is open */
+    opacity: 0;
+    transform: translateY(-.28em);
+    transition: color .15s ease, opacity .26s ease, transform .26s cubic-bezier(.22, 1, .36, 1);
+  }
+  #gaze .drop.open .item { opacity: 1; transform: none; pointer-events: auto; }
+  /* the second item waits on the first, so the list unrolls rather than
+     appearing -- the same thing the growth does to the nav, two items long */
+  #gaze .drop.open .item:nth-child(2) { transition-delay: 0s, .07s, .07s; }
+  /* White, not the red the nav uses. Red is the pointer's colour on the four
+     words themselves and the bee's on the one it is eating; inside the list it
+     would be a third thing saying the same word twice, and the list is already
+     held red at its heading the whole time it is open. A step up the grey to
+     --text is the same gesture at the volume this level is drawn at. */
+  #gaze .item:hover { color: var(--text); }
+
+  /* The frame: four labels pinned to the corners of the WINDOW, against a nav
+     that is pinned to the vine. They are not the nav and must not read as more
+     of it -- the nav is the piece's own voice, white and 40px, and the growth
+     decides when each word arrives -- so these sit small and a step down the
+     same grey ramp the vine is drawn in (--ink-2, with the name one step up at
+     --ink-3), and the red is left alone for the nav and the bee.
+
+     fixed, not absolute: body is a grid and #corners is an item in it, so an
+     absolute corner would be laid against the nearest positioned ancestor and
+     an inset:0 one against the ICB -- workable, but it says "the viewport" by
+     accident. The page is height:100%/overflow:hidden and never scrolls, so
+     fixed IS the viewport and says so.
+
+     The fade is the vine's own: #stack gets `ready` when the first frame is
+     built, and the general sibling combinator carries it across to here, a
+     quarter-second behind, with no second copy of the cue in script. */
+  #corners {
+    --pad: clamp(16px, 2.4vw, 30px);
+    position: fixed;
+    inset: 0;
+    /* a frame is not a surface to click: only the two links take the pointer
+       back, and nothing here may eat a hover meant for a button or the vine */
+    pointer-events: none;
+    z-index: 10;
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    font-size: clamp(14px, 2vw, 24px);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  #stack.ready ~ #corners { opacity: 1; }
+
+  /* The padding is the corner's own, not the frame's, so the label is held off
+     the window edge AND the link's hit area runs right out to it. */
+  #corners .corner {
+    position: absolute;
+    padding: var(--pad);
+    white-space: nowrap;
+    color: inherit;
+    text-decoration: none;
+  }
+  #corners .tl { top: 0; left: 0; color: var(--ink-3); font-size: clamp(16px, 2.35vw, 28px); }
+  #corners .tr { top: 0; right: 0; }
+  /* One step up the grey from the word beside it, not white: the same --ink-3
+     the name in the opposite corner sits at, so the two ends of the top edge
+     weigh the same and neither competes with the nav. Emphasis by brightness,
+     which is the only axis this page has. <em> for the emphasis it actually is,
+     un-italicised because VT323 has no oblique and the browser would
+     synthesise a slant. */
+  #corners .tr em { color: var(--ink-3); font-style: normal; }
+  #corners .bl { bottom: 0; left: 0; }
+  #corners .br { bottom: 0; right: 0; }
+
+  /* The same wipe the nav has, at a quarter the weight: one gesture repeated
+     small, so a corner answers the pointer the way a word does without
+     pretending to be one. See #gaze button::after for why the origin flips.
+     No will-change here -- these are two bars that move on a hover the pointer
+     is already inside, not four that have to be right on the sweep's first
+     frame, and a permanent layer each is not worth a corner. */
+  #corners a.corner { pointer-events: auto; cursor: pointer; transition: color .15s ease; }
+  #corners a.corner:hover { color: var(--accent); }
+  #corners a.corner::after {
+    content: "";
+    position: absolute;
+    left: var(--pad);
+    right: calc(var(--pad) + .14em);   /* stop at the last letter, not in the tracking after it */
+    bottom: calc(var(--pad) - .22em);
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1);
+  }
+  #corners a.corner:hover::after { transform: scaleX(1); transform-origin: right center; }
+
+  /* The bee. A body-level sibling of #stack, not a child of it, so its z-index
+     competes with the vine's layers (2) and the nav (10) in the root stacking
+     context: 20 puts it in front of the vine, 1 behind -- see the note on
+     #stack pre for why 1 and not -1.
+
+     Absolutely positioned against the initial containing block: body is
+     position:static, and the page is overflow:hidden/height:100% and never
+     scrolls, so ICB coordinates ARE viewport coordinates -- exactly what
+     getBoundingClientRect() hands back, with no correction term. That is what
+     makes anchoring to the buttons reliable under `place-items: start center`,
+     where nothing else on the page has a predictable offset. */
+  #bee-stack {
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* never eat a hover meant for a button underneath */
+    pointer-events: none;
+    /* the vine's font, for the vine's reason -- same ramp, same missing glyphs,
+       same five layers that only stack while every cell is one width */
+    font-family: monospace;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    white-space: pre;
+    /* font-size and line-height are both set by script, from CHAR_SIZE and the
+       measured advance, so the payload's 12x12 grid lands on square cells */
+    text-rendering: optimizeSpeed;
+    user-select: none;
+    will-change: transform;
+    opacity: 0;
+    transition: opacity .5s ease;
+  }
+  #bee-stack.ready { opacity: 1; }
+  /* same disjoint-layer trick as the vine's colour bands */
+  #bee-stack pre + pre { position: absolute; top: 0; left: 0; }
+
+  /* Phone width: tighter tracking buys PHOTOGRAPHY back a few characters of
+     overlap with the vine. */
+  @media (max-width: 600px) {
+    #gaze { --ls: .08em; }
+  }
+</style>
 </head>
-
 <body>
-    <nav>
-        <div class="nav-container">
-            <a href="#" class="nav-item current">Profile</a>
-            <a href="/my-work.html" class="nav-item">My Work</a>
-            <a href="/contact.html" class="nav-item">Contact Me</a>
-        </div>
-    </nav>
-    <section>
-        <div class="profile-info">
-            <div class="profile-avatar"></div>
-            <h1 class="greeting">Hi , I am <span class="name">Emre Uğur 👋🏻</span></h1>
-            <h1>I am a <span class="animate">computer scientist</span> </h1>
+<div id="stack" aria-label="Animated ASCII rendering of a hanging vine growing downward">
+  <nav id="gaze" aria-label="Sections">
+    <button type="button" data-href="about.html" style="top: 20%; right: calc(100% + var(--gap));">About</button>
+    <button type="button" data-href="photography.html" style="top: 40%; left: calc(100% + var(--gap));">Photography</button>
+    <!-- The one word that branches. The placement moves to a wrapper and the
+         button goes static inside it, so the button's BOX is exactly where it
+         was: the bee aims at these rects every frame and the reveal script
+         measures them once, and neither may notice this happened. Everything
+         under it is <a> and not <button> for the same reason -- `#gaze button`
+         is the selector both of those scripts are built on, and a menu item
+         that matched it would become a fifth thing the bee flies to and a
+         fifth word the growth has to reach before the nav is done.
 
-            <h3 class="about-me">
-                As a programmer with a deep interest in Artificial Intelligence and modeling natural systems, particularly the human brain, I am driven by a passion for understanding and replicating complex processes.
-                Currently pursuing a master’s in AI at Leiden University, Netherlands. 
-                I have hands-on experience in building information retrieval systems for trustworthy and lightweight chatbots.  
-                With a robust foundation in software engineering, I always seek structured engineering approaches when tackling large-scale problems.
-                I excel at acquiring and applying new skills efficiently, as I am highly motivated to learn and have the necessary foundation.
-            </h3>
-                <h1>Education & Experience</h1>
-                <div class="experience-container">
-                    <div class="experience-card Leiden">
-                        <p class="experience-info
-                        ">Masters 2024 - </p>
-                    </div>
-                    <div class="experience-card QITASC">
-                        <p class="experience-info">
-                            Internship 2023
-                        </p>
-                    </div>
-                    <div class="experience-card Karel">
-                        <p class="experience-info">
-                            Internship 2022
-                        </p>
-                    </div>
-                    <div class="experience-card Bilkent">
-                        <p class="experience-info
-                        ">Bachelors 2020-2024</p>
-                    </div>
-                    <div class="experience-card TED">
-                        <p class="experience-info
-                        ">High School 2016-2020</p>
-                    </div>
+         SOURCE ORDER IS THE BEE'S ROUTE. It steps through the words with
+         (autoIndex + 1) % buttons.length, so this wrapper sits between the 40%
+         word and the 80% one because it is the 60% word -- swapping the two
+         `style` attributes alone would have left the list reading down the page
+         while the bee flew 20 -> 60 -> 40 -> 80 across it. The reveal script
+         does not care, having measured every box, but it is the same list. -->
+    <div class="drop" style="top: 60%; right: calc(100% + var(--gap));">
+      <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
+      <div class="menu" id="projects-menu">
+        <a class="item" href="#">Origin Library</a>
+        <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
+      </div>
+    </div>
+    <button type="button" style="top: 80%; left: calc(100% + var(--gap));">WebDesign</button>
+  </nav>
+</div>
 
-                    
-                    
-                    
-                </div>
+<!-- The frame. Who the page is, what it is, and the two ways out of it, one
+     to a window corner each. Deliberately not part of #gaze: the nav is the
+     piece's own voice and the growth decides when it speaks, while these are
+     chrome and are simply there once the vine is. Sibling of #stack and after
+     it, which is what lets the fade below be a selector rather than a script. -->
+<div id="corners">
+  <span class="corner tl">Emre Uğur</span>
+  <span class="corner tr"><em>Creative</em> Portfolio</span>
+  <!-- the two live ones: point them somewhere before this goes anywhere -->
+  <a class="corner bl" href="#">Contact</a>
+  <a class="corner br" href="#" target="_blank" rel="noopener">GitHub</a>
+</div>
 
-        </div>
-    </section>
+<!-- Baked like the vine, but flown in real time: the wing cycle is a payload,
+     where it faces and where it goes are decided frame by frame. -->
+<div id="bee-stack" aria-hidden="true"></div>
 
+<script src="plant-frames.js"></script>
+<script src="bee-frames.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---- everything adjustable, in one place ----------------------------- */
+
+  var SCALE     = 0.97;           // how much of the window height the vine fills
+  // 4 here is the 6 this was tuned at, in the default font's units: what the
+  // tuning was ever about is the CELL, and a cell is advance x size, so a
+  // 0.602em advance reaches the same 2.4px at 4 that VT323's 0.40em did at 6.
+  // The tuning stands -- the vine's contrast lives in single bright cells among
+  // dim ones, and below about 2px of cell a lit bead is a dot small enough to
+  // read as grey however bright its colour, while above ~2.8 the stems start
+  // losing their shape.
+  //
+  // It is the RESOLUTION the vine asks for, though, not the size it ends up:
+  // buildGrid turns it into a row count and then sizes the cell to fill the
+  // window, so on a display tall enough to exhaust the master the cell grows
+  // past this and the stems thicken. That is the trade a 200-row master makes.
+  var CHAR_SIZE = 4;              // CSS pixels per character, before fitting
+  var FLOOR     = 16;             // black point: cells dimmer than this vanish
+  var GAMMA     = 0.50;           // <1 lifts midtones, >1 crushes them
+  // Darkest to lightest; first must be a space, and a ramp has to climb in INK
+  // COVERAGE or a glyph lighter than the one before it reads as a dent.
+  //
+  // Growing dots, not the figure's " .:-=+*#%@". The vine is beads threaded on
+  // near-vertical stems a cell or two wide, and -, = and + are all horizontal
+  // bars: at that width every strand came out a stack of dashes that smeared
+  // sideways into its neighbours, and the beads never resolved as round. Dots
+  // have no direction to smear along, so the strands stay strands.
+  var RAMP      = " ·.∙•○●■";
+  var FLIP      = false;          // the vine has no handedness to correct
+
+  // Brightness has to be its own channel. With a single ink colour the only
+  // contrast available is ink COVERAGE, and a small glyph on black reads as
+  // grey however bright that ink is -- which is why winding the gamma up only
+  // ever traded ink for black without making anything stand out: it darkened
+  // the haze and the beads together. So the grid is drawn once per band, each
+  // layer a flat grey stepped off the clip's own luminance, where the shadows
+  // sit near black and the lit beads reach white. Putting that range back is
+  // what separates the beads from the haze they sit in. The page is monochrome
+  // on purpose: red is spent on one thing only, the label under the pointer,
+  // and a coloured vine would be competing with it the whole time.
+  //
+  // The bands are var() references rather than literals so that the palette
+  // lives in one place -- the block at the top of the CSS -- instead of being
+  // spread across the two BANDS arrays. A custom property
+  // resolves at use time, so the five <pre>s are written once at build and
+  // never touched again.
+  //
+  // The TOP band's glow is --bloom and not --ink-4 because a halo at the
+  // core's own brightness has no edge against the core, so it stops reading
+  // as a bloom and just hazes the vine.
+  //
+  // `upto` is the highest ramp index the band claims, so the bands have to be
+  // in order and the last one has to reach the end of the ramp.
+  var BANDS = [
+    { upto: 1, color: "var(--ink-0)" },   // the haze around the stems: recedes
+    { upto: 3, color: "var(--ink-1)" },   // stems
+    { upto: 5, color: "var(--ink-2)", glow: "drop-shadow(0 0 3px var(--ink-2))" },   // the duller beads
+    { upto: 6, color: "var(--ink-3)", glow: "drop-shadow(0 0 5px var(--ink-3)) drop-shadow(0 0 13px var(--ink-3))" },   // the lit ones
+    { upto: 7, color: "var(--ink-4)", glow: "drop-shadow(0 0 6px var(--bloom)) drop-shadow(0 0 17px var(--bloom)) drop-shadow(0 0 38px var(--bloom))" }   // and their cores
+  ];
+
+  // The glow is a FILTER, not a text-shadow, and that is a performance
+  // decision that happens to also look better. A text-shadow is blurred by
+  // skia while the layer is being rastered -- once per shadow, at full device
+  // resolution, every time the text changes. Six of them, one with an 80px
+  // radius, on a layer the height of the window, 24 times a second, at 2x on a
+  // retina display: that was the stutter, and it arrived a couple of seconds
+  // in because the cost tracks how much of the vine has grown. A filter is
+  // applied by the COMPOSITOR to the layer's finished texture, so the glyphs
+  // raster once, plain, and the blur is a shader pass -- measured at 2x, the
+  // whole glow now costs what no glow at all cost before (22ms/s of raster,
+  // against 85). will-change:filter is what buys the separate layer; without
+  // it the filter falls back into raster and the saving goes away.
+  //
+  // Chained drop-shadows compose: the second blurs the first's output, so the
+  // falloff is softer than the same radii as separate text-shadows. That is
+  // why these numbers are smaller than the ones they replace and the halo
+  // still reads as wide.
+
+  // The clip is not a loop. It opens on a second and a half of black, grows for
+  // three and a half, and then has just under three of the grown vine swaying
+  // -- barely one swing of its own 2.75s period, and a visibly damped one. So
+  // playback is in two parts: the growth once, then the sway driven forever
+  // across SWAY_A..SWAY_B by the two cosines below.
+  // How the vine answers a bee that is eating it. The bee publishes where its
+  // nose is (see BEE_BITE, in the other script); everything about what that does
+  // to the picture is decided here, in the vine's own terms.
+  //
+  // The lift is PROPORTIONAL to the ink already in the cell, not added to it.
+  // A flat add lights the black around the strand as readily as the strand, and
+  // paints a visible disc of glyphs into empty space -- a spotlight on the vine
+  // rather than the vine itself burning. Scaling what is there instead means the
+  // strand and its haze come up together and the void stays void. BLOOM_HAZE is
+  // the one concession: a small floor, so the faint cells just off the strand
+  // have something to be scaled rather than nothing.
+  //
+  // Its ceiling is not a matter of taste. An empty cell is lifted by at most
+  // BLOOM_AMP * BLOOM_HAZE, and FLOOR is the level below which the ramp draws a
+  // space -- so the two together have to stay under FLOOR * maxLevel / 255, or
+  // 3.95 here, and anything above that paints a dim blue disc of the bloom's own
+  // shape into the black. Which is exactly what 6 did, once the falloff below
+  // was widened enough for the rim to be somewhere you could see it.
+  var BLOOM_HAZE = 2;             // levels of floor under the proportional lift
+
+  var GROW_FROM = 32;             // first frame shown; the black lead-in, trimmed
+  var SWAY_A    = 128;            // the arc the drive moves the vine across
+  var SWAY_B    = 182;
+  var SWAY_P1   = 6.4;            // seconds; the two never come back into step
+  var SWAY_P2   = 9.7;            // for 10 minutes, so the sway never repeats
+  var SWAY_MIX  = 0.62;           // how much of the swing P1 carries
+
+  /* ---------------------------------------------------------------------- */
+
+  var data = window.ASCII_PLANT;
+  var stack = document.getElementById("stack");
+  var pres = BANDS.map(function (b, i) {
+    var el = document.createElement("pre");
+    el.style.color = b.color;
+    if (b.glow) { el.style.filter = b.glow; el.style.willChange = "filter"; }
+    stack.appendChild(el);
+    return el;
+  });
+  var pre = pres[0];              // the layer in flow: it sizes the stack
+  if (!data) {
+    pre.textContent = "no payload -- see README.md for the bake that makes plant-frames.js";
+    stack.style.opacity = 1;
+    return;
+  }
+
+  // The payload is a high-resolution MASTER. The grid actually drawn is derived
+  // from the vine's size and CHAR_SIZE, and the master is resampled into it, so
+  // a smaller vine means FEWER characters rather than smaller ones.
+  var mCols = data.cols, mRows = data.rows, cells = mCols * mRows;
+  var ASPECT = mCols / mRows;
+  var deltas = data.deltas, total = deltas.length + 1;
+  var maxLevel = data.levels - 1;
+
+  /* ---- decoder -------------------------------------------------------- */
+
+  var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var V = new Uint8Array(128);
+  for (var i = 0; i < B64.length; i++) V[B64.charCodeAt(i)] = i;
+
+  var levels = null;              // what repaint() reads
+  var cache = null;
+  // The spaces at the end of a line draw nothing and cost exactly what ink
+  // costs to shape. See repaint(), where they come off.
+  var TRAIL = / +(?=\n|$)/g;
+  var painted = [];               // the string each layer is currently showing
+  var blend = null;               // where a between-frames position is mixed
+  var lut = new Array(data.levels);
+  var band = new Uint8Array(data.levels);
+  var TAU = Math.PI * 2;
+
+  function applyDelta(buf, s) {
+    var p = 0, idx = 0, len = s.length;
+    while (p < len) {
+      var shift = 0, gap = 0, c;
+      do { c = V[s.charCodeAt(p++)]; gap |= (c & 31) << shift; shift += 5; } while (c & 32);
+      idx += gap;
+      buf[idx] = V[s.charCodeAt(p++)];
+    }
+  }
+
+  // Deltas are sequential, so the decoder can only ever go forward -- but the
+  // sway loop has to come back to LOOP_A, and the growth has to start partway
+  // in at GROW_FROM. So decode the clip once, up front, and keep all of it:
+  // 192 frames x 19600 cells is 3.8 MB, after which showing any frame is a
+  // subarray view. No copy, no re-decode, and backwards costs what forwards does.
+  function buildCache() {
+    var work = new Uint8Array(cells), f;
+    blend = new Float32Array(cells);
+    for (var j = 0; j < cells; j++) work[j] = V[data.key.charCodeAt(j)];
+    cache = new Uint8Array(total * cells);
+    cache.set(work, 0);
+    for (f = 1; f < total; f++) {
+      applyDelta(work, deltas[f - 1]);
+      cache.set(work, f * cells);
+    }
+  }
+
+  // A whole frame costs nothing -- it is a view straight into the cache. A
+  // position between two frames mixes them, which the sway needs because it
+  // moves the vine at its own pace rather than the clip's. The drive never runs
+  // faster than the rate this was filmed at, so that is always an interpolation
+  // between neighbouring frames and never a blur across a skipped one.
+  function showAt(p) {
+    var i = p | 0, u = p - i;
+    if (u < 1e-4 || i >= total - 1) {
+      levels = cache.subarray(i * cells, (i + 1) * cells);
+      return;
+    }
+    var a = i * cells, b = a + cells, v = 1 - u;
+    for (var k = 0; k < cells; k++) blend[k] = cache[a + k] * v + cache[b + k] * u;
+    levels = blend;
+  }
+
+  // level -> character, and level -> which layer draws it. Both fall out of the
+  // same tone curve, so a cell is looked up once and the band comes for free.
+  //
+  function buildLut() {
+    var span = data.white - FLOOR, b;
+    for (var lv = 0; lv <= maxLevel; lv++) {
+      var v = (lv * 255 / maxLevel - FLOOR) / span;
+      v = v < 0 ? 0 : v > 1 ? 1 : Math.pow(v, GAMMA);
+      var ci = Math.round(v * (RAMP.length - 1));
+      lut[lv] = RAMP.charAt(ci);
+      for (b = 0; b < BANDS.length - 1 && ci > BANDS[b].upto; b++) {}
+      band[lv] = b;
+    }
+  }
+
+  /* ---- display grid ---------------------------------------------------- */
+
+  // Monospace advance width varies by font, so measure it rather than assuming
+  // 0.6em -- guessing would distort the vine. Cells must end up a true 2:1,
+  // the ratio the bake grid was chosen against.
+  var advanceRatio = 0.6;
+  var gCols = 0, gRows = 0, layers = [], colW = null, rowW = null, tmp = null;
+
+  // #stack's box, measured lazily and kept. It is fixed once the grid exists --
+  // every layer is gRows full lines whether or not there is any vine in them, so
+  // the box does not grow as the plant does -- and only buildGrid() can change
+  // it. Measuring per repaint instead would force a layout thirty times a second
+  // for a number that changes on resize and never otherwise. Height is the test
+  // rather than existence: at start() the grid is built before anything is
+  // painted into it, so the first measurement is legitimately zero.
+  var stackRect = null;
+  function stackBox() {
+    if (!stackRect || !stackRect.height) stackRect = stack.getBoundingClientRect();
+    return stackRect;
+  }
+
+  function measure() {
+    var probe = document.createElement("canvas").getContext("2d");
+    var style = getComputedStyle(pre);
+    probe.font = style.fontWeight + " 100px " + style.fontFamily;
+    var w = probe.measureText("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM").width;
+    if (w > 0) advanceRatio = w / 40 / 100;
+
+    // One font or no grid. If the ramp reaches outside the family the fallback
+    // brings its own advance with it, and the layers quietly stop sharing
+    // columns -- which reads as a slightly fuzzy vine, not as a bug, which is
+    // exactly why it needs saying out loud.
+    for (var r = 1; r < RAMP.length; r++) {
+      if (Math.abs(probe.measureText(RAMP.charAt(r)).width - w / 40) > 0.5) {
+        console.warn("plant: " + style.fontFamily + " has no '" + RAMP.charAt(r) +
+          "' -- the fallback's advance will pull the colour layers out of column");
+        break;
+      }
+    }
+  }
+
+  // Area-weighted resampling weights, as a flat CSR-style table.
+  //
+  // Partial source cells MUST contribute fractionally. Snapping each output
+  // cell to whole source cells looks harmless but is not: at a ratio near 2.06
+  // some outputs average 2 source rows and others 3, which on thin diagonal
+  // structures -- and this subject is almost nothing but thin diagonal stems --
+  // reads as stair-stepping.
+  function buildWeights(dst, src) {
+    var start = new Int32Array(dst + 1), idx = [], w = [];
+    for (var i = 0; i < dst; i++) {
+      start[i] = idx.length;
+      var a = i * src / dst, b = (i + 1) * src / dst;
+      var hi = Math.min(Math.ceil(b), src), sum = 0;
+      for (var j = Math.floor(a); j < hi; j++) {
+        var overlap = Math.min(b, j + 1) - Math.max(a, j);
+        if (overlap > 0) { idx.push(j); w.push(overlap); sum += overlap; }
+      }
+      for (var k = start[i]; k < w.length; k++) w[k] /= sum;
+    }
+    start[dst] = idx.length;
+    return { start: start, idx: new Int32Array(idx), w: new Float32Array(w) };
+  }
+
+  function buildGrid() {
+    var cellW = advanceRatio * CHAR_SIZE, cellH = 2 * cellW;
+    // No 0.94 here, unlike a centred figure: the vine hangs from the top edge,
+    // so the margin it wants above it is none at all. SCALE alone decides how
+    // far down the window it reaches.
+    var availH = window.innerHeight * SCALE;
+    var availW = window.innerWidth * 0.96 * SCALE;
+
+    var r = Math.round(availH / cellH);
+    var c = Math.round(r * ASPECT);
+    if (c * cellW > availW) { c = Math.floor(availW / cellW); r = Math.round(c / ASPECT); }
+
+    gRows = Math.max(8, Math.min(r, mRows));
+    gCols = Math.max(6, Math.min(c, mCols));
+
+    // The master can run out before the window does. 200 rows at the tuned
+    // cell is 963px of vine, so a viewport taller than about 1000px -- a 16"
+    // laptop is 1117, a full-screen 27" is 1440, and Safari's thinner toolbar
+    // gets there before Chrome's does on the same display -- left the vine
+    // hanging short of the floor with black underneath it, filling 86% or 67%
+    // of the height SCALE promised. It reads as the plant having stopped
+    // growing, which on a page whose whole subject is growth is the one thing
+    // it must not look like.
+    //
+    // So the cell is the free variable, not the height. The row count is
+    // decided first, against the master's limit; then the size is whatever
+    // makes those rows fill the window, which means a big display buys BIGGER
+    // beads once it can no longer buy more of them. Below the cap this changes
+    // nothing -- the arithmetic hands back the CHAR_SIZE it started from -- and
+    // the width term keeps a narrow window from pushing the vine out of frame.
+    var size = Math.min(availH / (gRows * 2 * advanceRatio),
+                        availW / (gCols * advanceRatio));
+
+    // ...but the ROW PITCH it implies has to be a whole CSS pixel, because
+    // Safari floors the used line-height to one and Chrome keeps it to 1/64.
+    // Measured in Safari 26: every line-height from 3.0 to 3.9 is laid out at
+    // 3, and 4.0 to 4.9 at 4, in px or in em alike. So the fractional pitch the
+    // arithmetic above hands back fills the window in Chrome and falls up to a
+    // pixel per row short in Safari -- at innerHeight 721 it asked for 3.4968
+    // and got 3, so 200 rows came out 600px instead of 699, 83% of the viewport
+    // where SCALE promised 97%. The same bug the note above describes, from the
+    // other end, and worse than short: the ADVANCE stays fractional while the
+    // pitch is truncated, so the cell loses the 1:2 the bake grid assumes and
+    // the vine is squashed as well as stunted.
+    //
+    // So the pitch is what gets chosen, and the font size is read off it rather
+    // than the other way round. At lineHeight = pitch and fontSize =
+    // pitch / (2 * advance) the cell is exactly pitch/2 x pitch in every engine
+    // -- 1:2 by construction, with nothing left to round. Rounding to nearest
+    // rather than down keeps the vine in contact with the floor, and can ask
+    // for at most half a pixel per row more than there is, so give a row back
+    // when it does. index.html solves this by measuring the honoured line box
+    // instead (see cell()); this is the same fix without the second reflow.
+    var pitch = Math.max(2, Math.round(size * 2 * advanceRatio));
+    if (gRows * pitch > availH) gRows = Math.max(8, Math.floor(availH / pitch));
+    size = pitch / (2 * advanceRatio);
+
+    stackRect = null;           // the grid decides the box; it has just changed
+    painted.length = 0;         // ...so nothing on screen matches anything held
+    layers = BANDS.map(function () { return new Array(gRows * (gCols + 1)); });
+    colW = buildWeights(gCols, mCols);
+    rowW = buildWeights(gRows, mRows);
+    tmp = new Float32Array(mRows * gCols);
+
+    // The box, written down rather than left to the text. `contain: size` in
+    // the CSS is the half of this that makes it binding; these are the numbers
+    // it binds to, and they are exactly the ones the untrimmed grid used to
+    // arrive at by itself -- columns times the cell, rows times the pitch. Not
+    // rounded: the vine is centred by the grid's `place-items`, and rounding
+    // here would shift it half a pixel off centre for no reason.
+    var boxW = gCols * size * advanceRatio, boxH = gRows * pitch;
+    stack.style.width = boxW + "px";
+    stack.style.height = boxH + "px";
+
+    // ...and the shape of the grid, said out loud. Two other scripts read this
+    // vine off the screen -- the bee's inkEdge() and the nav's front() -- and
+    // both used to take the column count from the length of a rendered line.
+    // Trimming the trailing spaces takes that away, so the grid publishes it
+    // instead. Same contract as BEE_BITE, in the other direction: one plain
+    // value, nothing read back, and re-validated by whoever reads it.
+    stack.dataset.cols = gCols;
+    stack.dataset.rows = gRows;
+
+    for (var L = 0; L < pres.length; L++) {
+      pres[L].style.fontSize = size + "px";
+      pres[L].style.lineHeight = pitch + "px";
+      pres[L].style.width = boxW + "px";
+      pres[L].style.height = boxH + "px";
+    }
+  }
+
+  // Where the bee's nose is, in this grid's own cells -- or null, which is the
+  // answer nearly all the time and the answer this script is built to give.
+  //
+  // The bee is a separate IIFE with its own clock and its own bugs, and this is
+  // the only thing it ever says to the vine. So nothing it says is trusted: the
+  // whole message is re-validated here, once per repaint, and anything missing,
+  // half-written or not a finite number leaves `bite` null and the vine painting
+  // exactly what it would have painted with no bee on the page at all.
+  var bite = null, biteKey = "";
+  function readBite() {
+    bite = null;
+    var b = window.BEE_BITE;
+    if (!b || !gCols || !gRows) return;
+    var bx = +b.x, by = +b.y, br = +b.r, amp = +b.amp;
+    if (!isFinite(bx) || !isFinite(by) || !(br > 0) || !(amp > 0)) return;
+    var r = stackBox();
+    if (!r.width || !r.height) return;
+    var cw = r.width / gCols, ch = r.height / gRows;
+    // rc and rr are the same radius in px measured in columns and in rows, which
+    // are not the same size: the vine's cell is 1:2, so a round patch on screen
+    // is an ellipse in the grid and the falloff below has to be normalised by
+    // each axis separately or the bloom comes out a stripe.
+    bite = { col: (bx - r.left) / cw, row: (by - r.top) / ch,
+             rc: br / cw, rr: br / ch, amp: amp };
+  }
+
+  // Resample the master into the display grid and map through the ramp.
+  // Separable: horizontal pass into tmp[], then vertical straight into the
+  // layers. A cell's glyph goes to the layer its band names and every other
+  // layer gets a space there, so the layers are disjoint and stacking them
+  // reassembles the one grid -- in three colours instead of one.
+  function repaint() {
+    var y, j, k, e, s, L, NL = layers.length;
+    for (y = 0; y < mRows; y++) {
+      var off = y * mCols, to = y * gCols;
+      for (j = 0; j < gCols; j++) {
+        s = 0;
+        for (k = colW.start[j], e = colW.start[j + 1]; k < e; k++)
+          s += levels[off + colW.idx[k]] * colW.w[k];
+        tmp[to + j] = s;
+      }
+    }
+    for (var i = 0; i < gRows; i++) {
+      var base = i * (gCols + 1);
+      // The bloom is a disc, so each row knows its own span of it before the row
+      // is walked: outside that span there is no test to do and no cost to pay.
+      // dr of 9 with no bite parks every row outside it, so the inner loop below
+      // is two integer compares away from the code that was here before.
+      var dr = bite ? (i - bite.row) / bite.rr : 9, jlo = 1, jhi = 0, half;
+      if (dr > -1 && dr < 1) {
+        half = Math.sqrt(1 - dr * dr) * bite.rc;
+        jlo = Math.max(0, Math.ceil(bite.col - half));
+        jhi = Math.min(gCols - 1, Math.floor(bite.col + half));
+      }
+      for (j = 0; j < gCols; j++) {
+        s = 0;
+        for (k = rowW.start[i], e = rowW.start[i + 1]; k < e; k++)
+          s += tmp[rowW.idx[k] * gCols + j] * rowW.w[k];
+        // Inside the bite: lift the level, and let the tone curve do the rest.
+        // Nothing here knows about colour or glow -- the cell simply climbs the
+        // ramp, and buildLut() has already decided that a higher level means a
+        // denser glyph in a brighter layer with a wider halo under it. That is
+        // the whole of the plant's reaction to being eaten, and it is four lines
+        // because the machinery to make it look like that was already here.
+        if (j >= jlo && j <= jhi) {
+          var dc = (j - bite.col) / bite.rc;
+          var dd = dc * dc + dr * dr;
+          // A bell, flat at the centre and flat again at the rim: (1-d^2)^2,
+          // which needs no sqrt. The obvious (1-d)^2 was tried first and is the
+          // wrong shape for this picture -- the tone curve is a square root, so
+          // a cell has to gain about half its own value again before it moves
+          // one step up the ramp, and a falloff that steep only ever cleared
+          // that bar within a sixth of the radius. The bloom came out a hard
+          // little dot the size of the bee's head. This one holds most of its
+          // height out to two thirds of the way, which is what makes it a patch
+          // of lit plant rather than a spotlight.
+          if (dd < 1) { var f = 1 - dd; s += bite.amp * f * f * (s + BLOOM_HAZE); }
+        }
+        var lv = Math.round(s);
+        lv = lv < 0 ? 0 : lv > maxLevel ? maxLevel : lv;
+        // reversing the column is the horizontal flip: mirroring the element
+        // with scaleX(-1) would mirror the glyphs too and leave them backwards
+        var at = base + (FLIP ? gCols - 1 - j : j), b = band[lv];
+        for (L = 0; L < NL; L++) layers[L][at] = " ";
+        layers[b][at] = lut[lv];
+      }
+      // no trailing newline on the last row -- it would add an extra line box
+      var nl = (i === gRows - 1) ? "" : "\n";
+      for (L = 0; L < NL; L++) layers[L][base + gCols] = nl;
+    }
+    for (L = 0; L < NL; L++) {
+      // Two economies, and between them they are most of what a repaint costs.
+      //
+      // The first is the trailing spaces. A line is gCols wide in every layer,
+      // but on the two brightest ones nearly all of it is empty -- a core here,
+      // another forty columns along, and nothing after the last of them -- and
+      // Chrome re-shapes every one of those spaces each time the text changes.
+      // Stripping them took the grid's layout from 2.4ms a repaint to 1.4ms,
+      // measured at 1600x1000 on a 2x display, and roughly halved the raster
+      // behind it. It is safe only because buildGrid pins the box: a <pre> left
+      // to size itself would come out a different width on every layer.
+      //
+      // The second is not writing at all. textContent is what invalidates a
+      // layer, and an invalidated layer is re-shaped, re-rastered AND re-blurred
+      // -- and the blur is by a long way the most expensive thing on this page.
+      // So a layer about to be handed the string it already has is left alone.
+      // The compare is over characters that have just been built anyway, and at
+      // the turns of the sway, where the vine is barely moving, it skips nearly
+      // all of them.
+      var text = layers[L].join("").replace(TRAIL, "");
+      if (text !== painted[L]) { painted[L] = text; pres[L].textContent = text; }
+    }
+  }
+
+  /* ---- playback -------------------------------------------------------- */
+
+  var t0 = 0, hiddenAt = 0, shown = -1;
+  var GROW_SECS = (SWAY_B - GROW_FROM) / data.fps;
+  var SWAY_MID = (SWAY_A + SWAY_B) / 2, SWAY_AMP = (SWAY_B - SWAY_A) / 2;
+
+  // Where in the clip to stand, in frames, at t seconds.
+  //
+  // The growth is the clip's own and plays at the rate it was filmed at, whole
+  // frame by whole frame. The sway cannot be: there is only one swing of
+  // footage, it is damped, and looping it any of the obvious ways gives itself
+  // away. A cut back to the start jumps -- even the best-matching pair in the
+  // quiet tail is five to eight times a frame of local motion, which in an
+  // almost still picture reads as a twitch. Running it forwards and backwards
+  // at a constant rate never jumps, but turns on a sixpence at each end and
+  // plays the damping in reverse, so the vine visibly gathers energy.
+  //
+  // So drive the position instead of stepping it, with two cosines of unrelated
+  // period. Position is continuous, so nothing ever jumps; velocity is too, so
+  // there is no bounce at the turns; and because the two periods only come back
+  // into step every ten minutes, the turning points land somewhere new every
+  // time and the sway never settles into a rhythm the eye can catch. Both start
+  // at 1, which puts t=0 at SWAY_B with the vine momentarily still -- exactly
+  // where the growth leaves it, so the two halves meet without any fitting.
+  function positionAt(t) {
+    if (t < GROW_SECS) return GROW_FROM + t * data.fps;
+    var s = t - GROW_SECS;
+    return SWAY_MID + SWAY_AMP * (
+      SWAY_MIX * Math.cos(TAU * s / SWAY_P1) +
+      (1 - SWAY_MIX) * Math.cos(TAU * s / SWAY_P2));
+  }
+
+  // Repainting is not free and rAF is not a budget. A repaint rewrites the
+  // textContent of all five layers, and Chrome answers that by re-shaping every
+  // line of every layer and re-rastering the glow underneath them -- together
+  // about 8ms of a 1440x900 window, which a 120Hz display asks for every 8.3ms.
+  // That is what the stutter is: the work is per REPAINT, and rAF was asking
+  // for one per refresh, so the faster the screen the further behind it fell.
+  //
+  // So paint on the clip's terms instead of the display's. The growth IS a
+  // 24fps clip, and rounding the position to whole frames both pins it to that
+  // rate and skips the blend, since a whole frame is a view into the cache and
+  // costs nothing to show -- interpolating footage back onto its own frame
+  // times only ever cost time. The sway has no native rate, being driven rather
+  // than played, so it gets one: 30Hz is well past the point where a drift this
+  // slow reads as continuous, and halves the work again.
+  var SWAY_HZ = 30;
+  // ...and a ceiling is only half of it, because between two ticks 33ms apart
+  // the drive often has not moved the vine far enough to change a single cell.
+  // The position is continuous and the picture is not: it is a grid of rounded
+  // levels, and the sway crosses the whole 54-frame arc in six and a half
+  // seconds, so at the turns it can spend the better part of a second inside
+  // one frame of footage. Quantising the position to halves of a frame is what
+  // lets the guard below see that and do nothing -- the repaint then happens
+  // when the PICTURE changes rather than when the clock says it may, which at
+  // the ends of each swing is a good deal less often. Half a frame of a 24fps
+  // clip is 21ms of a motion this slow: below anything the eye resolves, and
+  // well inside the cell the vine is drawn on.
+  var SWAY_STEP = 2;              // steps per clip frame the sway lands on
+  var lastPaint = -1e9;
+
+  function tick(now) {
+    if (!t0) t0 = now;
+    var t = (now - t0) / 1000;
+    var p = positionAt(t);
+    if (t < GROW_SECS) p = Math.round(p);
+    else if (now - lastPaint < 1000 / SWAY_HZ) { requestAnimationFrame(tick); return; }
+    else p = Math.round(p * SWAY_STEP) / SWAY_STEP;
+    readBite();
+    // A bite that has moved is a repaint in its own right: the vine can be
+    // standing on the same frame while the bloom on it is still swelling. Held
+    // to the sway's rate and not the display's, because the branch above does
+    // not gate during the growth, and a bite alone would otherwise ask for a
+    // repaint every refresh. Quantised to whole cells, which is the finest the
+    // grid can show anyway, so a bee holding station re-paints nothing.
+    var key = bite ? (bite.col | 0) + "," + (bite.row | 0) + "," +
+                     Math.round(bite.amp * 20) : "";
+    if (p !== shown || (key !== biteKey && now - lastPaint >= 1000 / SWAY_HZ)) {
+      shown = p; lastPaint = now; biteKey = key; showAt(p); repaint();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    // Don't count hidden time as elapsed. The position is closed-form, so there
+    // is no catch-up to cap any more -- but a tab brought back after a minute
+    // should carry on from where it was rather than from wherever the clock got
+    // to, and a growth watched half way through should still finish.
+    // performance.now() shares its time origin with the rAF timestamp, so the
+    // two are the same clock.
+    if (document.hidden) hiddenAt = performance.now();
+    else if (hiddenAt) { t0 += performance.now() - hiddenAt; hiddenAt = 0; }
+  });
+
+  window.addEventListener("resize", function () { buildGrid(); repaint(); });
+
+  function start() {
+    measure();
+    buildLut();
+    buildGrid();
+    buildCache();
+    showAt(GROW_FROM);
+    repaint();
+    stack.classList.add("ready");
+    requestAnimationFrame(tick);
+  }
+
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+  else start();
+})();
+</script>
+
+<script>
+/* ---- the bee -----------------------------------------------------------
+   Deliberately self-contained: its own IIFE, its own rAF, no reference to
+   anything in the vine's script. The vine is a decoder with a playback clock
+   and the bee is a 12x12 sprite with a spring in it; they share only
+   the window and the z-index ladder, so a mistake in here cannot stop the
+   plant from growing. */
+(function () {
+  "use strict";
+
+  /* ---- everything adjustable, in one place ----------------------------- */
+
+  var OMEGA   = 3.4;    // spring stiffness; settles a long leg in ~1.4s
+  var DWELL   = 1.5;    // seconds spent at a button before moving on
+  var ARRIVE  = 8;      // px from the aim point that counts as arrived
+  var CALM    = 30;     // ...but only once it is slower than this, px/s
+  var EAT_GAP = 2;      // px between the bee's nose and the strand it is eating
+  var EAT_PCT = 0.25;   // how far in from the outermost strand it settles, 0..1
+  var VINE_SAMPLE = 0.12;   // seconds between re-reads of the vine's grid
+  var LIFT    = 10;     // px above the label's middle
+  var TURN    = 25;     // px/s of horizontal drift before it bothers to turn
+  var BOB_A   = 3.5, BOB_P = 1.1;   // vertical hover, px and seconds
+  var SWAY_A  = 1.8, SWAY_P = 1.7;  // and a smaller horizontal one
+  var NIB_A   = 2.5, NIB_P = 0.42;  // the nibble: a lunge at the vine, while fed
+  var Z_FRONT = 20;     // over the vine (2) and the nav (10)
+  var Z_BEHIND = 1;     // under the vine, over body's black. NOT -1 -- see CSS
+  var TAU = Math.PI * 2;
+
+  // -- the meal ----------------------------------------------------------
+  //
+  // One envelope drives both of the things that happen while the bee is
+  // feeding: its own halo widens, and the vine lights under its nose. It is a
+  // SWELL and not a flash. The nibble is already a 0.42s beat and the bee is
+  // already lunging on it; putting the light on that beat too gives a strobe,
+  // and at this scale a strobe reads as a fault in the page rather than as an
+  // animal. So the light says "feeding" and the motion says "biting", and
+  // nothing at all is allowed on the beat.
+  //
+  // Out is faster than in: settling to eat is a thing that takes a moment, and
+  // leaving is a decision already made by the time the bee moves.
+  var FEED_IN   = 0.40;   // seconds for the feeding light to come up, once parked
+  var FEED_OUT  = 0.25;   // and to let go when it leaves
+  var GLOW_ADD  = 4;      // px ADDED to every halo radius at full feed -- not a
+                          // multiplier, and the difference is most of what the
+                          // effect costs. A blur is paid for by radius, and the
+                          // bee's outer stop is 21px on a layer that re-rasters
+                          // every frame because the wings are flapping; scaling
+                          // all three by 1.9 took that stop to 40 and roughly
+                          // doubled the area being blurred, for the part of the
+                          // halo you can least see. Adding a constant instead
+                          // doubles the 4px CORE, which is the part that reads
+                          // as the bee lighting up, and moves the outer haze by
+                          // a fifth. Measured at a third of the cost, and it is
+                          // arguably the better look: the glow tightens into
+                          // the bee rather than smearing away from it.
+  // The bloom is paid for in the same coin as the halo. Promoting cells into the
+  // vine's top band puts them on the layer carrying a 38px blur, and the wider
+  // the lit blob, the larger the region of that layer the compositor re-blurs --
+  // thirty times a second, for as long as the bee is parked. So the radius is
+  // the expensive number here, not the amplitude, and 32 buys back most of what
+  // 40 cost while still covering the strand and both its edges.
+  var BLOOM_R   = 32;     // px radius of the patch of vine that lights up
+  var BLOOM_AMP = 1.45;   // and how much brighter its centre gets, as a fraction
+
+  // Baked from a photograph by bake.py -- the same tool and the same pipeline
+  // the vine goes through: crop, box-downsample onto the grid, quantise
+  // luminance, delta-encode. What lands here is LUMINANCE, not characters, so
+  // the black point, the tone curve and the ramp below stay live controls in
+  // the page instead of being frozen into the payload:
+  //
+  //   python3 makebee2.py source/bee2   # cut out, flapped, mirrored to face right
+  //   python3 bake.py --video source/bee2/b%03d.png --crop 400:400:2:0 \
+  //                   --cols 12 --rows 12 --white 252 --fps 18 \
+  //                   --var ASCII_BEE --out bee-frames.js
+  //
+  // Two things differ from the vine's bake. The source is a still, so the wing
+  // cycle had to be made before baking -- see makebee2.py. And 11x11 is the
+  // grid as DISPLAYED: there is no master to resample down from, because the
+  // bee is always drawn at one size, where the vine is sized off the window and
+  // needs the headroom that a master buys.
+  //
+  // The bee's size is CELLS x CELL and both halves are adjustable, which is
+  // more rope than it sounds: the cell count is how much FIGURE there is to
+  // draw with, and the cell size is how heavy the drawing reads against the
+  // vine. Eight cells at the vine's own 4px was a 19px bee with no silhouette
+  // left in it, and ten at 8px was 48px of bee whose waist had closed up into
+  // one mass; twelve at 5px is 36.1px, which keeps the waist open and the two
+  // wings apart while the dots stay close enough to the vine's to read as one
+  // hand. Ten cells is about the floor -- below it the figure is a blob.
+  //
+  // --white is 252 where the brightest cell is actually 219, which is not a
+  // mistake: normalising against the true maximum drives the yellow bands to
+  // the top of the ramp, and at a 4px cell two adjacent solid ■ merge into a
+  // bar that reads as a glyph rather than as a stripe. Holding the white point
+  // above the subject keeps the ramp's last step out of play.
+  //
+  // A photograph was tried here first and could not be made to work. A furry
+  // insect keeps its identity in texture, and texture is exactly what a grid
+  // this coarse destroys -- it arrives as noise, at any tone curve, and was
+  // still unreadable at 44x28. What survives is flat tone and silhouette, which
+  // is what the illustration this is baked from is already made of.
+  // Half the size control -- the other half is the bake's --cols/--rows above
+  // -- and the half that decides what the bee is MADE of: at 5 against the
+  // vine's 4 its dots are a quarter larger, enough to hold their own on top of
+  // the vine without reading as a different material.
+  // 12 x 0.602 x 5 = 36.1px.
+  //
+  // What differs from the vine besides is the cell's SHAPE, not its size: the
+  // vine squares its cells to 2:1 because that is the aspect its master was
+  // baked at, and start() gives the bee square ones instead, or twelve rows of
+  // bee would be twice as tall as they are wide and there would be no waist.
+  var CHAR_SIZE = 5;    // px per cell -> a 12x12 sprite, 36.1px
+  var FLOOR = 16;       // black point: cells dimmer than this vanish
+  var GAMMA = 0.80;     // <1 lifts the midtones, which is where the wing lives
+  var RAMP  = " ·.∙•○●■";   // the vine's ramp, unchanged
+
+  // The vine's own five greys, copied from its BANDS -- the bee is lit by the
+  // same light as the plant it is flying around, and stays as monochrome as it
+  // is.
+  //
+  // The GLOW is not copied, though: it is scaled -- and like the vine's it is a
+  // compositor filter rather than a text-shadow, for the reason given there. The vine's radii were chosen
+  // against a 6px cell and this bee's cell is 3px, so lifting its 80px outer
+  // bloom unchanged would wrap a 29px sprite in a halo three times its own
+  // width and leave a smudge with a bee somewhere inside it. These are close to
+  // half the vine's, which is the same bloom measured in CELLS.
+  //
+  // `upto` is the highest ramp index the band claims, so the bands have to be
+  // in order and the last one has to reach the end of the ramp.
+  var BANDS = [
+    { upto: 1, color: "var(--ink-0)" },   // the haze: recedes
+    { upto: 3, color: "var(--ink-1)" },   // the body in shadow
+    { upto: 5, color: "var(--ink-2)", halo: [[2, "var(--ink-2)"]] },
+    { upto: 6, color: "var(--ink-3)", halo: [[3, "var(--ink-3)"], [8, "var(--ink-3)"]] },
+    { upto: 7, color: "var(--ink-4)", halo: [[4, "var(--bloom)"], [10, "var(--bloom)"], [21, "var(--bloom)"]] }
+  ];
+
+  // Radii rather than a finished string, because the halo is no longer a
+  // constant: it widens while the bee is feeding. Scaling the RADII and leaving
+  // the colours alone is what keeps that reading as the same bee lit harder --
+  // brightening the colours instead would take the core past --ink-4, which is
+  // the end of the ramp and has nowhere left to go.
+  //
+  // The colour does not warm, either. Red on this page means one thing: the
+  // label lit() marks, which is answering at the same moment the bee settles.
+  // Two reds a hundred pixels apart would be two announcements of one event.
+  function haloFilter(halo, add) {
+    var out = "";
+    for (var h = 0; h < halo.length; h++)
+      out += (h ? " " : "") + "drop-shadow(0 0 " +
+             (halo[h][0] + add).toFixed(1) + "px " + halo[h][1] + ")";
+    return out;
+  }
+
+  /* ---------------------------------------------------------------------- */
+
+  var data = window.ASCII_BEE;
+  var host = document.getElementById("bee-stack");
+  // Needed in two places now: the aim is measured off the vine's own edge, and
+  // the fade-in waits on its .ready -- so it is read once, here.
+  var stack = document.getElementById("stack");
+  var buttons = [].slice.call(document.querySelectorAll("#gaze button"));
+  // No payload, no bee -- and the vine, being a separate script, carries on.
+  if (!data || !host || !stack || buttons.length < 2) return;
+
+  var FLAP = 1 / data.fps;        // seconds a frame is held
+
+  // One <pre> per band, stacked exactly on top of each other, each holding only
+  // the glyphs its band claims and a space everywhere else. Straight out of the
+  // vine's playbook, and safe for the same reason: every layer is the same
+  // monospace grid at the same size, so cell (i,j) lands on the same pixel in
+  // all of them.
+  var pres = BANDS.map(function (b, i) {
+    var p = document.createElement("pre");
+    p.style.color = b.color;
+    // No will-change here, and it is the single most expensive line that was
+    // on this page. will-change:filter asks Chrome to keep the halo as a LIVE
+    // compositor operation -- a render surface re-blurred every time the layer
+    // is drawn -- and this layer is drawn on every frame there is, because the
+    // bee is moving on every frame there is. Six chained blurs times five
+    // layers times 120Hz. Worse, the bee is flying over the vine, so its damage
+    // drags the vine's three glowing surfaces into the redraw with it: measured
+    // on a 120Hz display, a page with the bee taken off it spent 9ms a second
+    // on the GPU and the same page with the bee back on spent 380, with the
+    // vine repainting twice a second either way.
+    //
+    // Without it the halo is blurred into the bee's raster instead, once per
+    // wing frame -- eighteen a second, on a 36px sprite -- and flying it around
+    // is a translate of a finished texture. Same picture, GPU thread down 36%.
+    // #bee-stack keeps its will-change:transform: that one is true, the
+    // transform really does change every frame, and it is what buys the layer
+    // this reasoning depends on.
+    //
+    // The vine's layers keep theirs, and the asymmetry is the point: those
+    // stand still and are re-written thirty times a second, so a composited
+    // filter re-run is cheaper for them than a re-raster would be. See BANDS.
+    if (b.halo) { p.style.filter = haloFilter(b.halo, 0); }
+    p.style.fontSize = CHAR_SIZE + "px";
+    if (i) p.style.position = "absolute";
+    host.appendChild(p);
+    return p;
+  });
+
+  /* ---- decoder --------------------------------------------------------- */
+
+  var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var V = new Uint8Array(128);
+  for (var i = 0; i < B64.length; i++) V[B64.charCodeAt(i)] = i;
+
+  var cells = data.cols * data.rows, total = data.deltas.length + 1;
+  var cache = new Uint8Array(total * cells);
+  (function decode() {
+    var work = new Uint8Array(cells), f, j;
+    for (j = 0; j < cells; j++) work[j] = V[data.key.charCodeAt(j)];
+    cache.set(work, 0);
+    for (f = 1; f < total; f++) {
+      var str = data.deltas[f - 1], p = 0, idx = 0, len = str.length;
+      while (p < len) {
+        var shift = 0, gap = 0, c;
+        do { c = V[str.charCodeAt(p++)]; gap |= (c & 31) << shift; shift += 5; } while (c & 32);
+        idx += gap;
+        work[idx] = V[str.charCodeAt(p++)];
+      }
+      cache.set(work, f * cells);
+    }
+  })();
+
+  /* ---- tone curve, then every frame composed once ---------------------- */
+
+  // level -> character, and level -> which layer draws it. Both fall out of the
+  // same curve, so a cell is looked up once and the band comes for free.
+  var maxLevel = data.levels - 1;
+  var lut = new Array(data.levels), band = new Uint8Array(data.levels);
+
+  (function buildLut() {
+    var span = data.white - FLOOR, b;
+    for (var lv = 0; lv <= maxLevel; lv++) {
+      var v = (lv * 255 / maxLevel - FLOOR) / span;
+      v = v < 0 ? 0 : v > 1 ? 1 : Math.pow(v, GAMMA);
+      var ci = Math.round(v * (RAMP.length - 1));
+      lut[lv] = RAMP.charAt(ci);
+      for (b = 0; b < BANDS.length - 1 && ci > BANDS[b].upto; b++) {}
+      band[lv] = b;
+    }
+  })();
+
+  // Twelve frames x two directions x five layers, composed once at startup.
+  // The payload is 160 cells, so this is nothing, and it buys a draw that is
+  // five textContent assignments with no per-frame work at all.
+  //
+  // Facing left is the column order reversed -- the vine's FLIP, for the vine's
+  // stated reason: mirroring the element with scaleX(-1) would mirror the
+  // glyphs too and leave every bead drawn backwards.
+  function composeFrame(f, flip) {
+    var cols = data.cols, rows = data.rows, off = f * cells;
+    var out = BANDS.map(function () { return []; }), i, j, L;
+    for (i = 0; i < rows; i++) {
+      for (j = 0; j < cols; j++) {
+        var lv = cache[off + i * cols + (flip ? cols - 1 - j : j)];
+        var g = lut[lv];
+        for (L = 0; L < BANDS.length; L++) out[L].push(" ");
+        if (g !== " ") out[band[lv]][out[0].length - 1] = g;
+      }
+      // no trailing newline on the last row -- it would add an extra line box
+      if (i < rows - 1) for (L = 0; L < BANDS.length; L++) out[L].push("\n");
+    }
+    return out.map(function (a) { return a.join(""); });
+  }
+  var FRAMES = { right: [], left: [] };
+  for (var k = 0; k < total; k++) {
+    FRAMES.right.push(composeFrame(k, false));
+    FRAMES.left.push(composeFrame(k, true));
+  }
+
+  /* ---- where the buttons are, and where the plant is -------------------- */
+
+  var halfW = 0, halfH = 0;
+
+  // #stack's box is a poor stand-in for the vine. The grid is a good deal wider
+  // than the plant inside it -- a tapering strand that only fills the middle --
+  // so a bee that hugs the BOX stops forty pixels short of anything and eats
+  // black air. What it has to hug is the ink, so the ink is what gets measured: the
+  // rendered glyphs, read straight off the vine's own <pre>s. That is as close
+  // as this script comes to the vine, and it still touches none of its state --
+  // no clock, no frame number, no variable; just the text that is on the screen.
+  //
+  // Only the rows the bee actually spans are scanned, and the two dimmest layers
+  // are skipped: BANDS[0] is --ink-0, a hair off the background, and BANDS[1]
+  // barely further, so their outlying cells are ones you cannot see and
+  // therefore not ones worth flying to. The split is cached for a tenth of a second, which is also how
+  // often the aim is re-taken while the bee is feeding.
+  var vinePres = [].slice.call(document.querySelectorAll("#stack pre"));
+  var vineGrid = null, vineAt = -1e9;
+
+  // getBoundingClientRect is a question the layout engine cannot answer without
+  // finishing whatever layout it is in the middle of -- and the vine hands it a
+  // fresh eleven-thousand-character grid thirty times a second, so asking for a
+  // box from inside the bee's rAF forces that entire grid to be laid out again,
+  // synchronously, before the call returns. The bee asks eight times a second
+  // while it is feeding.
+  //
+  // None of these boxes move between resizes. The nav is positioned off #stack
+  // in percentages, and #stack's own box is now pinned by buildGrid rather than
+  // grown by its text. So measure once, keep it, and let the resize handler be
+  // the only thing allowed to forget. Height is the test rather than existence,
+  // for the vine's reason: a box measured before the grid was built is
+  // legitimately zero and has to be taken again.
+  var stackRect = null, btnRects = [];
+  function stackBox() {
+    if (!stackRect || !stackRect.height) stackRect = stack.getBoundingClientRect();
+    return stackRect;
+  }
+  function btnBox(i) {
+    var r = btnRects[i];
+    if (!r || !r.height) r = btnRects[i] = buttons[i].getBoundingClientRect();
+    return r;
+  }
+  function forgetRects() { stackRect = null; btnRects = []; }
+
+  function vineLines() {
+    if (vineGrid && clock - vineAt < VINE_SAMPLE) return vineGrid;
+    vineAt = clock;
+    vineGrid = vinePres.slice(2).map(function (p) { return p.textContent.split("\n"); });
+    return vineGrid;
+  }
+
+  // px of the plant's edge on the given side, at the height cy: the rows the bee
+  // covers are each measured, and a quantile of them answers -- see below. null
+  // when that band is empty (out past the tip of the vine, say), and the caller
+  // falls back to the box edge.
+  function inkEdge(cy, left) {
+    var g = vineLines();
+    if (!g.length || !g[0].length) return null;
+    var r = stackBox();
+    if (!r.width || !r.height) return null;
+    // Off the grid's own stamp, not off the length of a rendered line: repaint()
+    // strips the trailing spaces now, so lines are no longer all one width and
+    // the text can no longer be asked how wide the grid is. Re-validated here
+    // like everything else this script reads from outside itself.
+    var rows = +stack.dataset.rows, cols = +stack.dataset.cols;
+    if (!(rows > 0) || !(cols > 0)) return null;
+    var ch = r.height / rows, cw = r.width / cols;
+    // the rows the sprite covers, and every one of them counts: the quantile
+    // below needs a population, and one row is not one
+    var lo = Math.max(0, Math.floor((cy - halfH - r.top) / ch));
+    var hi = Math.min(rows - 1, Math.ceil((cy + halfH - r.top) / ch));
+    var per = [], best, line, i, k, L;
+    for (i = lo; i <= hi; i++) {
+      best = -1;
+      for (L = 0; L < g.length; L++) {
+        line = g[L][i];
+        if (!line) continue;
+        // Walk in from the side being measured and stop at the first glyph --
+        // except that on the right there is nothing to walk. repaint() ends
+        // every line on ink, so the last character IS the rightmost glyph and
+        // the scan is a subtraction. (Which also means charAt can no longer be
+        // asked past the end of a line, where it answers "" and would have been
+        // read as ink.)
+        if (left) {
+          k = 0;
+          while (k < line.length && line.charCodeAt(k) === 32) k++;
+          if (k >= line.length) continue;
+        } else {
+          k = line.length - 1;
+        }
+        if (best < 0 || (left ? k < best : k > best)) best = k;
+      }
+      if (best >= 0) per.push(best);
+    }
+    if (!per.length) return null;
+    // A QUANTILE of those rows, not the outermost of them. The vine's silhouette
+    // is ragged and it sways, so at any height one strand can be flung fifty
+    // pixels past the rest for a few frames; aiming at the extreme hands that
+    // strand the whole aim, and the bee backs off the plant to respect a twig.
+    // The median is steady but it is the edge of the MASS, and a bee parked
+    // there is buried in beads and cannot be picked out at all. A quarter of the
+    // way in is the fringe: past the outliers, still outside the thick of it.
+    per.sort(function (a, b) { return a - b; });
+    var q = Math.round((per.length - 1) * EAT_PCT);
+    var col = left ? per[q] : per[per.length - 1 - q];
+    return r.left + (left ? col * cw : (col + 1) * cw);
+  }
+
+  // Straight off the live DOM, never off the CSS percentages. Those are
+  // relative to #stack, which is sized by the vine's own grid maths and changes
+  // on every resize; the rect is the one number that is true whatever the grid
+  // decided. Recomputed at the start of each leg, so the aim follows the nav
+  // through a relayout without the bee knowing anything about the vine.
+  //
+  // The button says WHICH SIDE and HOW HIGH; the plant says how far in. The
+  // height is taken off the label, so the bee still reads as belonging to that
+  // word, but x is measured off the vine -- the bee is here to eat, and the
+  // plant is the thing it has to be next to.
+  function aimAt(i) {
+    var r = btnBox(i);
+    var mid = window.innerWidth / 2;
+    var left = (r.left + r.right) / 2 < mid;
+    var y = (r.top + r.bottom) / 2 - LIFT;
+    // INSIDE the label, in the gap it leaves between itself and the vine, nose
+    // to the nearest strand at its own height. The sign comes from the rect, so
+    // both columns fall out of one line; `face` is the pose the arrival holds --
+    // always at the plant.
+    var edge = inkEdge(y, left);
+    if (edge === null) {
+      var s = stackBox();
+      edge = left ? s.left : s.right;
+    }
+    var x = left ? edge - halfW - EAT_GAP : edge + halfW + EAT_GAP;
+    return {
+      x: Math.max(halfW + 4, Math.min(window.innerWidth - halfW - 4, x)),
+      y: Math.max(halfH + 4, Math.min(window.innerHeight - halfH - 4, y)),
+      face: left ? "right" : "left"
+    };
+  }
+
+  /* ---- state ------------------------------------------------------------ */
+
+  var autoIndex = 0;      // where the unattended rotation is up to
+  var hoverIndex = -1;    // the button under the pointer, if any, which wins
+  var legIndex = -1;      // the target the current leg was aimed at
+  var target = { x: 0, y: 0 };
+  var x = 0, y = 0, vx = 0, vy = 0;
+  var arrived = false, dwell = 0;
+  var legFace = "right";  // the pose this leg parks in, which is at the plant
+  var eatT = 0;           // seconds since it settled; drives the nibble, alone
+  var reaimT = 0;         // and since the aim was last re-taken at the plant
+  var facing = "right", frame = 0, flapT = 0, drawn = "";
+  var last = 0, clock = 0;
+  var feed = 0;           // 0..1, the swell: everything about the meal rides it
+  var beeReady = false;   // the bee is on screen -- nothing lights before that
+  var glowShown = -1;     // the halo width last written, quantised
+
+  function active() { return hoverIndex >= 0 ? hoverIndex : autoIndex; }
+
+  // The label the bee is feeding at, lit the way a pointer lights one. -1 for
+  // none. The walk in index.html marks its list with this same attribute and for
+  // the same reason: the travel is the gesture, the colour is the arrival, and
+  // they are not allowed to overlap -- so the list goes plain the moment the bee
+  // leaves and one word answers when it settles. :hover is a separate rule and
+  // still answers on its own frame, which is what makes a pointer feel instant.
+  function lit(i) {
+    // Nothing is lit before the bee is visible. start() parks it on button 0 and
+    // the vine then takes about four seconds to grow, so without this the first
+    // word would sit red and underlined under an empty patch of screen and
+    // the rotation would be a word or two along by the time the bee faded up.
+    if (!beeReady) i = -1;
+    for (var j = 0; j < buttons.length; j++)
+      buttons[j].setAttribute("aria-current", j === i ? "true" : "false");
+  }
+
+  // A leg is only re-aimed when the destination actually changes, because this
+  // is also where depth is decided -- once, from the direction of travel, and
+  // then held for the whole crossing. Deciding it per frame instead would let
+  // the bee change planes halfway through the vine, which reads as a glitch
+  // rather than as depth.
+  function retarget(force) {
+    var i = active();
+    if (i === legIndex && !force) return;
+    legIndex = i;
+    target = aimAt(i);
+    legFace = target.face;
+    var dx = target.x - x;
+    if (Math.abs(dx) > 24) {
+      host.style.zIndex = dx > 0 ? Z_FRONT : Z_BEHIND;
+    }
+    arrived = false;
+    eatT = reaimT = 0;   // the meal is over; both clocks start again on arrival
+    lit(-1);          // and the label it was feeding at lets go
+  }
+
+  /* ---- motion ----------------------------------------------------------- */
+
+  // A critically damped spring, not a tween and not a plain exponential chase.
+  // A tween has to be torn down and restarted when a hover interrupts it, and
+  // the restart shows as a kink; an exponential chase is smooth but starts every
+  // leg at full speed, so the bee leaves like it was flicked. The spring carries
+  // its velocity across a change of target, so an interrupt mid-flight becomes a
+  // bank and not a corner, and it accelerates out of a standstill on its own.
+  function integrate(dt) {
+    var ax = OMEGA * OMEGA * (target.x - x) - 2 * OMEGA * vx;
+    var ay = OMEGA * OMEGA * (target.y - y) - 2 * OMEGA * vy;
+    vx += ax * dt; vy += ay * dt;
+    x += vx * dt;  y += vy * dt;
+  }
+
+  function step(dt) {
+    retarget(false);
+    integrate(dt);
+
+    var dx = target.x - x, dy = target.y - y;
+    var speed = Math.sqrt(vx * vx + vy * vy);
+    if (!arrived && Math.sqrt(dx * dx + dy * dy) < ARRIVE && speed < CALM) {
+      arrived = true;
+      dwell = DWELL;
+      eatT = 0;
+      lit(legIndex);
+    }
+    if (arrived) {
+      eatT += dt;
+      // The vine goes on swaying while the bee eats, so the aim is re-taken at
+      // the cadence the grid is re-read and the spring walks the difference. It
+      // is the same measurement, not a second mechanism: the bee holds station
+      // against a strand that is moving, which is what feeding looks like.
+      reaimT += dt;
+      if (reaimT >= VINE_SAMPLE) {
+        reaimT = 0;
+        var re = aimAt(legIndex);
+        target.x = re.x; target.y = re.y;
+      }
+    }
+    // The swell. Linear in and out rather than eased, because it is already
+    // being watched through a fade -- the halo it drives widens as a blur and a
+    // blur softens its own ends. An ease here would land as a hesitation.
+    feed += ((arrived && beeReady) ? 1 / FEED_IN : -1 / FEED_OUT) * dt;
+    feed = feed < 0 ? 0 : feed > 1 ? 1 : feed;
+
+    // the dwell clock only runs unattended: while the pointer is on a button the
+    // bee stays put, however long that is
+    // ...and it does not run before the bee is on screen either: the rotation
+    // is the bee's tour of the list, so its first step is timed from the bee's
+    // first landing, not from page load.
+    if (arrived && hoverIndex < 0 && beeReady) {
+      dwell -= dt;
+      if (dwell <= 0) { autoIndex = (autoIndex + 1) % buttons.length; retarget(false); }
+    }
+
+    // Turning off the spring's own velocity, which is already smooth, so no
+    // extra filtering is needed -- just a deadband, or the bee would flicker
+    // between facings on the sub-pixel drift of the hover bob.
+    if (vx > TURN) facing = "right";
+    else if (vx < -TURN) facing = "left";
+    // ...and the arrival overrules it: parked, the bee faces the plant whatever
+    // it was doing on the way in. The two never fight over it, because a bee at
+    // a standstill is inside the deadband and the rule above has no opinion.
+    if (arrived) facing = legFace;
+
+    flapT += dt;
+    while (flapT >= FLAP) { flapT -= FLAP; frame = (frame + 1) % total; }
+  }
+
+  /* ---- drawing ---------------------------------------------------------- */
+
+  function draw() {
+    var key = facing + frame;
+    if (key !== drawn) {
+      drawn = key;
+      var f = FRAMES[facing][frame];
+      for (var L = 0; L < pres.length; L++) pres[L].textContent = f[L];
+    }
+    // The bob is added here and never integrated into x/y, so the hover wobble
+    // rides on the flight instead of fighting the spring for the same variable.
+    // Two periods that do not divide into each other, for the reason the vine
+    // uses two: a single sine settles into a beat the eye picks up in seconds.
+    // The nibble rides here too, and is the only one of the three that is not a
+    // plain sine: a raised cosine off eatT, which leaves 0 on the exact frame
+    // the bee settles -- so there is no step into it -- and which only ever
+    // lunges TOWARD the plant, never away from it. Hence eatT and not clock:
+    // the free-running clock would be caught mid-swing at every arrival.
+    var nib = arrived ? NIB_A * (0.5 - 0.5 * Math.cos(eatT * TAU / NIB_P)) : 0;
+    var bx = x + SWAY_A * Math.sin(clock * TAU / SWAY_P) +
+             (legFace === "right" ? nib : -nib);
+    var by = y + BOB_A * Math.sin(clock * TAU / BOB_P);
+    host.style.transform = "translate3d(" + (bx - halfW).toFixed(2) + "px," +
+                                            (by - halfH).toFixed(2) + "px,0)";
+
+    // The halo, quantised to thirteen steps. The swell is only moving for about
+    // half a second at each end of a meal; between those it holds, and a
+    // quantised value means the style is not written at all while it holds. Five
+    // filter strings a frame for no change would be five compositor invalidations
+    // a frame for no change.
+    var q = Math.round(feed * 12);
+    if (q !== glowShown) {
+      glowShown = q;
+      var add = GLOW_ADD * (q / 12);
+      for (var B = 0; B < BANDS.length; B++)
+        if (BANDS[B].halo) pres[B].style.filter = haloFilter(BANDS[B].halo, add);
+    }
+
+    // The nose, in viewport coordinates -- taken from bx and not from x, so it
+    // carries the lunge and the hover with it. This is the bite: where the vine
+    // lights.
+    var nose = bx + (legFace === "right" ? halfW + EAT_GAP : -(halfW + EAT_GAP));
+
+    // The one thing the bee ever says to the vine, and it says it by leaving a
+    // plain object on the window rather than by calling anything. Nothing is
+    // read back, no function is shared, and the vine re-validates every field
+    // before it uses one -- so the isolation the two scripts were written with
+    // survives: a bee that throws, stalls or writes rubbish here still cannot
+    // stop the plant from growing. See readBite() in the other script.
+    window.BEE_BITE = feed > 0
+      ? { x: nose, y: by, r: BLOOM_R, amp: BLOOM_AMP * feed }
+      : null;
+  }
+
+  function tick(now) {
+    if (!last) last = now;
+    // clamped so a tab returning from the background integrates one ordinary
+    // frame rather than a minute's worth, which would fire the bee off-screen
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    clock += dt;
+    step(dt);
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  /* ---- pointer ---------------------------------------------------------- */
+
+  // The zone is the GROUP, not the button: one of these words has a menu under
+  // it, and a pointer that has moved down into that menu has not left the word
+  // -- it is reading what the word opened. The bee stays, the dwell clock stays
+  // stopped, and the label stays lit, which is the whole of what makes the
+  // dropdown feel like part of the word rather than a panel in front of it.
+  //
+  // over/out rather than enter/leave, because those do not bubble and the
+  // things being moved onto here are the menu's own children. The relatedTarget
+  // test is what turns a bubbling out into a real leave: moving from the word to
+  // an item inside its menu fires one, and it is not one.
+  buttons.forEach(function (b, i) {
+    var zone = b.closest(".drop") || b;
+    zone.addEventListener("mouseover", function () {
+      if (hoverIndex === i) return;
+      hoverIndex = i;
+      retarget(false);          // breaks off whatever leg was in progress
+    });
+    zone.addEventListener("mouseout", function (e) {
+      if (hoverIndex !== i) return;
+      if (e.relatedTarget && zone.contains(e.relatedTarget)) return;   // still inside
+      hoverIndex = -1;
+      // resume the rotation FROM HERE rather than from wherever it had got to,
+      // so the next button is the one after the one just visited
+      autoIndex = i;
+      if (arrived) dwell = DWELL;
+    });
+  });
+
+  window.addEventListener("resize", function () {
+    halfW = host.offsetWidth / 2;
+    halfH = host.offsetHeight / 2;
+    forgetRects();              // every box on the page has just moved
+    retarget(true);             // the nav has moved; re-read the rects
+  });
+
+  /* ---- start ------------------------------------------------------------ */
+
+  function start() {
+    // Monospace advance width varies by font, so measure it rather than assuming
+    // 0.6em -- the vine measures it for the same reason. The vine then squares
+    // its cells to 2:1 because that is the aspect its source grid was baked at;
+    // a hand-drawn sprite wants SQUARE cells instead, or six rows of bee would
+    // be twice as tall as it is wide and there would be no room to draw a waist.
+    var probe = document.createElement("canvas").getContext("2d");
+    var style = getComputedStyle(pres[0]);
+    probe.font = style.fontWeight + " 100px " + style.fontFamily;
+    var w = probe.measureText("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM").width;
+    var advance = w > 0 ? w / 40 / 100 : 0.6;
+    pres.forEach(function (p) { p.style.lineHeight = advance + "em"; });
+
+    // one draw to give the element a size before anything is measured against it
+    var f0 = FRAMES.right[0];
+    for (var L = 0; L < pres.length; L++) pres[L].textContent = f0[L];
+    halfW = host.offsetWidth / 2;
+    halfH = host.offsetHeight / 2;
+
+    var first = aimAt(0);
+    x = first.x; y = first.y;
+    target = first;
+    legFace = facing = first.face;
+    legIndex = 0;
+    arrived = true;
+    dwell = DWELL;
+    // start() parks the bee at the first button without ever passing through
+    // step(), so the label it is already feeding at has to be lit from here
+    lit(0);
+    host.style.zIndex = Z_FRONT;
+    draw();
+
+    // The bee comes in behind the last word, not behind the whole growth. The
+    // nav fades itself in at the pace the vine descends past it and stamps #gaze
+    // with `grown` on the last one, so that class is the cue: the list finishes
+    // writing itself and the bee arrives to it, while the plant is still filling
+    // out underneath. Waiting for the growth's full length instead left a few
+    // seconds of finished list and nothing in it.
+    //
+    // Polled off the class rather than taken off an event, for the same reason
+    // the vine's own `ready` is polled: this runs after fonts.ready and the nav
+    // may well have finished first, and a class that is already set still reads
+    // true where an event already fired is simply gone.
+    //
+    // The cap is a backstop on the whole opening, the nav's own included -- it
+    // cannot be allowed to keep the bee off the page if it never marks itself.
+    var gaze = document.getElementById("gaze");
+    var plantData = window.ASCII_PLANT;
+    var CAP = (plantData ? (150 / plantData.fps) * 1000 : 4000) + 1200;
+    var waitedFrom = performance.now();
+
+    (function waitForLabels() {
+      if (!(gaze && gaze.classList.contains("grown")) &&
+          performance.now() - waitedFrom < CAP)
+        return void requestAnimationFrame(waitForLabels);
+
+      // a beat behind the mark, so the bee's half-second fade sits under the tail
+      // of the last word's rather than racing it
+      setTimeout(function () {
+        host.classList.add("ready");
+        // Only now is there a bee to see, so only now is there anything to
+        // light: the swell is held at zero until this, or the vine would come
+        // out of its growth already blooming under an invisible bee.
+        beeReady = true;
+        forgetRects();      // the nav finished writing itself while we waited
+        // The opening aim was taken before the vine had drawn a single frame, so
+        // inkEdge() had nothing to measure and it fell back to the box. Now
+        // there is ink: re-take it, and let the spring walk the bee the last
+        // few pixels in while it fades up.
+        retarget(true);
+      }, 250);
+    })();
+
+    requestAnimationFrame(tick);
+  }
+
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+  else start();
+})();
+</script>
+<script>
+/* ---- the labels --------------------------------------------------------
+   The nav comes in with the growth: a word lights up when the vine has grown
+   past the height that word sits at, so the list writes itself down the page
+   at the plant's own pace instead of sitting there complete while the plant is
+   still a stub.
+
+   Its own IIFE, and it reads the vine the way the bee does -- off the rendered
+   <pre>s, never off the vine's clock or its frame number. The growth is a clip
+   with a frame rate and the labels are four boxes with percentage tops, and the
+   only thing that reliably relates them is where the ink actually IS. A
+   schedule derived from the frame count would be a second copy of the timing,
+   correct until the clip is re-baked or the window changes shape.
+
+   The two dimmest bands are skipped for the reason the bee skips them: their
+   outlying cells are ones you cannot see, and a word should not answer to a
+   tip that has not visibly arrived. */
+(function () {
+  "use strict";
+
+  var SAMPLE = 80;      // ms between reads; the growth is 24fps, this is plenty
+
+  var stack = document.getElementById("stack");
+  var layers = [].slice.call(document.querySelectorAll("#stack pre")).slice(2);
+  var pending = [].slice.call(document.querySelectorAll("#gaze button"));
+  var rows = 0, at = -1e9;
+
+  // Boxes, measured once. This loop runs through the growth, which is the one
+  // stretch of the page where the vine is repainting a full grid every frame --
+  // so a getBoundingClientRect in here does not read a box, it forces the whole
+  // grid to be laid out again before it can answer. Nothing being measured
+  // moves: #stack is pinned by buildGrid, the buttons are placed off it in
+  // percentages, and a word being revealed only changes its opacity.
+  var stackRect = null, btnRects = [];
+  function stackBox() {
+    if (!stackRect || !stackRect.height) stackRect = stack.getBoundingClientRect();
+    return stackRect;
+  }
+  // Keyed off `all` and not off `pending`: pending is spliced as each word
+  // reveals itself, so its indices move under you and a cache keyed on them
+  // would start handing out the wrong box halfway through the growth.
+  var all = pending.slice();
+  function btnBox(b) {
+    var i = all.indexOf(b), r = btnRects[i];
+    if (!r || !r.height) r = btnRects[i] = b.getBoundingClientRect();
+    return r;
+  }
+
+  // The nav marks itself done on the last word. That mark is the bee's cue --
+  // it waits on this class, not on the growth's length -- so the list being
+  // complete and the bee arriving are one event with one cause, and re-timing
+  // the reveal re-times the entrance for free.
+  var gaze = document.getElementById("gaze");
+  function reveal(b) {
+    b.classList.add("grown");
+    var i = pending.indexOf(b);
+    if (i >= 0) pending.splice(i, 1);
+    if (!pending.length) gaze.classList.add("grown");
+  }
+
+  // The backstop. The vine's tip need not reach the lowest label -- the grid is
+  // taller than the plant in it -- and with no payload at all there is no ink to
+  // pass anything. Either way the list has to be there when the growth is over,
+  // so the clip's own length decides the last word, whatever the ink did.
+  var plant = window.ASCII_PLANT;
+  setTimeout(function () {
+    while (pending.length) reveal(pending[pending.length - 1]);
+  }, (plant ? (150 / plant.fps) * 1000 : 4000) + 600);
+
+  // the grid is rebuilt on resize, so the row count is re-read rather than kept
+  window.addEventListener("resize", function () {
+    rows = 0; stackRect = null; btnRects = [];
+  });
+
+  // How far down the page the growth has got, in px: the lowest row that has any
+  // ink in it, in the vine's own box. trimming the tail off the text is the
+  // whole measurement -- rows below the tip are spaces and newlines and nothing
+  // else, so what survives the trim ends on the last row that has something in
+  // it, and counting its newlines is that row's index.
+  // The lowest row with any ink in it, counted from the BACK of the text.
+  //
+  // This used to be a `.replace(/\s+$/, "")` and a `.split("\n")` per layer,
+  // eight times a second, over eleven thousand characters that are mostly the
+  // empty grid below the tip -- two full passes and two big allocations to find
+  // one number, on the main thread, during the only part of this page that is
+  // already painting a fresh grid every frame. Walking backwards over the tail
+  // instead touches only the whitespace it is there to skip, allocates nothing,
+  // and gets the row by subtraction: the grid has rows-1 newlines in it (the
+  // last line carries none), so the newlines counted on the way back are the
+  // rows BELOW the ink, and the rest are above it.
+  function lastInkRow(t) {
+    var i = t.length - 1, below = 0, c;
+    while (i >= 0) {
+      c = t.charCodeAt(i);
+      if (c === 10) below++;
+      else if (c !== 32 && c !== 9 && c !== 13) break;
+      i--;
+    }
+    return i < 0 ? -1 : (rows - 1) - below;
+  }
+
+  function front() {
+    if (!layers.length) return null;
+    if (!rows) {
+      // The grid's own stamp when it is there, and the newline count when it is
+      // not -- the vine writes the stamp in buildGrid, which has run before this
+      // loop starts, but a page with no payload never gets that far.
+      rows = +stack.dataset.rows;
+      if (!(rows > 0)) {
+        var full = layers[0].textContent;
+        if (!full) return null;
+        rows = full.split("\n").length;
+      }
+    }
+    var row = -1;
+    for (var i = 0; i < layers.length; i++) {
+      var n = lastInkRow(layers[i].textContent);
+      if (n > row) row = n;
+    }
+    if (row < 0) return null;
+    var r = stackBox();
+    if (!r.height) return null;
+    return r.top + (row + 1) * (r.height / rows);
+  }
+
+  function tick(now) {
+    if (!pending.length) return;      // nothing left to wait for; stop the loop
+    if (now - at >= SAMPLE) {
+      at = now;
+      var y = front();
+      if (y !== null) {
+        for (var i = pending.length - 1; i >= 0; i--) {
+          var b = btnBox(pending[i]);
+          // the middle of the word, not its top: the fade should read as the
+          // growth passing THROUGH it
+          if (b.top + b.height / 2 <= y) reveal(pending[i]);
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+
+<script>
+/* ---- the dropdown -------------------------------------------------------
+   Hover opens it, click pins it open, and the difference is the whole of the
+   logic here. A pointer passing over a word should be able to see what is
+   under it and then leave without having changed anything; a pointer that
+   CLICKED the word has asked for the list to stay, and it then stays until it
+   is dismissed -- another click, a click elsewhere, or Escape.
+
+   It is not a CSS :hover, and the reason is that a click cannot close what
+   :hover is holding open: the pointer is still on the word, so the rule that
+   opened it is still matching, and the menu would snap back the moment the
+   class came off. One state, in one place, driven by both inputs.
+
+   The bee opens it too: while it is feeding at PROJECTS the list is out, and
+   it rolls back up when the bee moves on. Three reasons to be open -- the
+   pointer on the group, a click pin, the bee -- and the menu is open while any
+   of them holds. The bee's is read off the aria-current the bee script stamps
+   on the word it has landed at, so neither script reaches into the other.
+   Dismissing (a click, a click elsewhere, Escape) clears all three, so a list
+   shut while the bee is still there stays shut until it lands here again.
+
+   The pointer's reason is mouse only, which is the point of pointerType: touch
+   has no hover, and its first tap is the pin.
+
+   pointerover/pointerout rather than enter/leave, because those bubble: the
+   listener sits on the wrapper, which is pointer-events:none like the rest of
+   #gaze, and only ever hears from the button and the items underneath it. The
+   relatedTarget check is what turns a bubbling out into a real leave -- moving
+   from the button to an item inside the menu fires one, and it is not one. */
+(function () {
+  "use strict";
+
+  var drop = document.querySelector("#gaze .drop");
+  if (!drop) return;
+  var btn = drop.querySelector("button");
+  var hover = false, pinned = false, bee = false;
+
+  function sync() {
+    var open = hover || pinned || bee;
+    drop.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function set(open) {
+    if (open) hover = true;
+    else hover = pinned = bee = false;
+    sync();
+  }
+
+  // Closed until the growth has reached the word. The button is unhoverable
+  // before then anyway -- pointer-events arrives with `grown` -- but the menu
+  // must not be openable by a click that lands on the word's dark box either.
+  function ready() { return btn.classList.contains("grown"); }
+
+  drop.addEventListener("pointerover", function (e) {
+    if (e.pointerType === "mouse" && ready()) set(true);
+  });
+  drop.addEventListener("pointerout", function (e) {
+    if (e.pointerType !== "mouse" || pinned) return;
+    if (e.relatedTarget && drop.contains(e.relatedTarget)) return;   // still inside
+    hover = false;
+    sync();                     // the bee may still be holding it open
+  });
+
+  new MutationObserver(function () {
+    var landed = btn.getAttribute("aria-current") === "true";
+    if (landed === bee) return;
+    bee = landed && ready();
+    sync();
+  }).observe(btn, { attributes: true, attributeFilter: ["aria-current"] });
+
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    if (!ready()) return;
+    // Touch never hovered, so the first tap is the one that opens. On a mouse
+    // the menu is already open by the time the click lands, and the click is
+    // therefore either a pin or a dismissal.
+    if (drop.classList.contains("open") && pinned) set(false);
+    else { pinned = true; sync(); }
+  });
+
+  // A chosen item has answered the question the menu was asking.
+  drop.addEventListener("click", function (e) {
+    if (e.target.closest(".item")) set(false);
+  });
+
+  // pointerdown, not click: iOS Safari only fires click on things it thinks
+  // are clickable, so a tap on the vine or the black never reached here and
+  // the menu stayed open on a phone. pointerdown fires for every tap and press.
+  document.addEventListener("pointerdown", function (e) {
+    if (!drop.contains(e.target)) set(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && drop.classList.contains("open")) { set(false); btn.focus(); }
+  });
+})();
+</script>
+
+<script>
+/* ---- where the words go -------------------------------------------------
+   The destination lives on the word, as data-href, and this is the one
+   listener that honours it. PROJECTS has none and never will: it answers a
+   click by unrolling its list, and the script above owns that.
+
+   These stay <button>s and do not become <a>s, which looks like the obvious
+   simplification and is not. `#gaze button` is the selector the bee's flight
+   path and the growth's reveal are both built on -- four buttons, four rects
+   read every frame, four words lit in turn -- and an <a> would drop out of
+   both: the bee would stop visiting the word and the growth would never hand
+   it `grown`, which is also what gives it pointer-events. So the anchor's one
+   useful property is borrowed here instead, and the element stays what the
+   rest of the page already believes it is.
+
+   No guard on `grown` is needed: an ungrown button is pointer-events:none, so
+   a click on it never reaches this listener at all. */
+(function () {
+  "use strict";
+
+  document.getElementById("gaze").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-href]");
+    if (btn) location.href = btn.dataset.href;
+  });
+})();
+</script>
 
 </body>
-
 </html>

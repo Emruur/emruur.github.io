@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Imaginary Garden — Emre Uğur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* index.html's palette, copied as photography.html copies it. Black only, and
+     here for the plainest reason of all: every one of these six works was made
+     on black, and on black they end where the light in them ends. */
+  :root {
+    --bg:     #000;
+    --text:   #ffffff;
+    --accent: #ff3131;
+    --ink-0:  #2d2d2d;
+    --ink-1:  #565656;
+    --ink-2:  #979797;
+    --ink-3:  #d9d9d9;
+    --ink-4:  #ffffff;
+
+    --pad: clamp(16px, 2.4vw, 30px);
+    /* The three works of a triptych touch. Kept as a variable because every
+       width below is written against it. */
+    --gap: 0px;
+  }
+
+  html { background: var(--bg); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "VT323", monospace;
+  }
+
+  /* ---- the chrome ------------------------------------------------------
+     The way back and the page's name, in the two top corners, over a gradient
+     that lets the works run out of light as they scroll under it -- the same
+     ground photography.html lays under its own chrome, for the same reason. */
+  body::after {
+    content: "";
+    position: fixed;
+    left: 0; right: 0; top: 0;
+    height: 120px;
+    pointer-events: none;
+    z-index: 5;
+    background: linear-gradient(180deg,
+      rgba(0,0,0,.94) 0%, rgba(0,0,0,.72) 38%, rgba(0,0,0,0) 100%);
+  }
+  #corners {
+    position: fixed;
+    inset: 0 0 auto 0;
+    pointer-events: none;
+    z-index: 10;
+    font-size: 24px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  body.ready #corners { opacity: 1; }
+  #corners .corner {
+    position: absolute;
+    top: 0;
+    padding: var(--pad);
+    white-space: nowrap;
+    color: inherit;
+    text-decoration: none;
+  }
+  #corners .tl { left: 0; }
+  #corners .tr { right: 0; color: var(--ink-3); }
+  #corners .back {
+    font-size: 40px;
+    line-height: .8;
+    letter-spacing: 0;
+    color: var(--text);
+  }
+  #corners a.corner {
+    pointer-events: auto;
+    cursor: pointer;
+    display: inline-block;
+    transition: color .15s ease, transform .22s cubic-bezier(.22, 1, .36, 1);
+  }
+  #corners a.corner:hover { color: var(--accent); transform: translateX(-.12em); }
+
+  /* ---- a triptych ------------------------------------------------------
+     One screen each, content centred in it. The three works share ONE height
+     and take their widths from their own aspect, so a row of 9:16 videos and a
+     row of 4:5 stills are each even without either having to be cropped.
+
+     That height is the smaller of two: what the window's height leaves once the
+     chrome, the heading and a bottom margin are out of it, and the height at
+     which the three together exactly fill the window's width. --sum is the three
+     aspects added up, so --h × --sum + two gaps is the row's width. All of it is
+     CSS -- there is nothing here a script needs to measure. */
+  .tri {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 96px var(--pad) 48px;
+  }
+  .tri-inner { width: max-content; max-width: 100%; }
+  /* The triptych's title, in the red, at the chevron's size; the three works'
+     names follow it on the same baseline, in the order they hang. */
+  .tri h2 {
+    font-weight: 400;
+    font-size: 40px;
+    line-height: 1;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 29px;
+  }
+  .tri h2 .names {
+    /* 24px until the line would run off a phone narrower than ~390px */
+    font-size: min(24px, 6.1vw);
+    /* restated: letter-spacing inherits as the title's computed px, not as .14em */
+    letter-spacing: .14em;
+    color: var(--ink-3);
+    display: flex;
+  }
+  /* A dot between names, in the grey a step down, with the old 29px gap split
+     either side of it. The "/ ''" is its alt text: nothing for a screen reader. */
+  .tri h2 .names span + span::before {
+    content: "·";
+    content: "·" / "";
+    color: var(--ink-2);
+    margin: 0 11px 0 11px;
+  }
+  /* --lift is how far the middle work rises, as a share of --h. The row is
+     pushed down by the same amount so the raised work clears the title line
+     above it rather than sliding over it, and the height term divides by
+     1.15 + --lift because the row now takes that much more of the window --
+     1.15 being the tallest work's --grow. */
+  .row {
+    --lift: .14;
+    --h: min(calc((100svh - 206px) / (1.15 + var(--lift))),
+             calc((100vw - 2 * var(--pad) - 2 * var(--gap)) / var(--sum)));
+    display: flex;
+    /* bottoms level, so a work drawn larger than the rest rises out of the
+       row rather than hanging below it */
+    align-items: flex-end;
+    gap: var(--gap);
+    /* + the title's own gap: vertical margins between siblings collapse, so
+       the title's margin-bottom alone would vanish into this one. */
+    margin-top: calc(var(--h) * var(--lift) + 0px);
+  }
+  /* --grow draws one work larger than the row's own height, keeping its
+     aspect; --sum counts it at that size. */
+  .work {
+    flex: none;
+    width: calc(var(--h) * var(--a) * var(--grow, 1));
+  }
+  /* The middle work sits a little higher than the two either side of it. A
+     share of the row's own height rather than pixels, so the step stays in
+     proportion at every window size. */
+  .work:nth-child(2) { transform: translateY(calc(var(--h) * var(--lift) * -1)); }
+  .work img, .work video {
+    display: block;
+    width: 100%;
+    height: calc(var(--h) * var(--grow, 1));
+    object-fit: contain;
+    background: var(--bg);
+  }
+  .work video { cursor: pointer; }
+  /* A work shown narrower than its source: --a is set to the width it keeps,
+     and the picture fills the box from its right edge, so what is lost comes
+     off the left. */
+  /* --x moves that anchor off the right edge for a work cut on both sides:
+     cutting L off the left and R off the right is --x = L / (L + R). */
+  .crop-l img { object-fit: cover; object-position: var(--x, 100%) center; }
+  /* Black coming in off the left edge, gone by 10% of the width -- softens the
+     seam where a work meets the one before it. */
+  .fade-l { position: relative; }
+  .fade-l::after {
+    content: "";
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 100%;
+    height: var(--h);
+    pointer-events: none;
+    background: linear-gradient(90deg, #000 0%, rgba(0,0,0,0) 10%);
+  }
+
+  /* ---- narrow or upright: a strip per triptych ---------------------------
+     Any window under 700px wide, and ANY window taller than it is wide -- a
+     tablet held upright has the width for three in a row but not the height
+     to make them worth looking at. Landscape phones fall in by width. 
+     The row turns into its own sideways scroller and each work is sized so one
+     fits whole and HALF of the next is showing past it -- a picture cut by the
+     edge of the screen is the cue that there is more of it to the side.
+
+       pad + w + gap + w/2 = 100vw   ->   w = (100vw - pad - gap) / 1.5
+
+     The strip runs to the window's right edge rather than stopping at the
+     padding, so the half-work is cut by the screen and not by a margin.
+     Snapping holds each work to the left padding; the last one cannot reach
+     it, and snaps to the end of the strip instead, fully in view. */
+  @media (max-width: 700px), (orientation: portrait) {
+    /* Still one screen, still centred in it -- only the side padding goes, so
+       the strip can run to the window's right edge. The top padding keeps the
+       title clear of the chrome on a short screen. */
+    .tri { padding: 72px 0 32px; }
+    .tri-inner { width: 100%; }
+    .tri h2 { padding: 0 var(--pad); }
+    /* --w is the width a work takes: one and a half across the screen, or --
+       on an upright tablet, where that would be far taller than the screen --
+       as much as the height allows. The height term is fitted to the placement
+       below, whose works span 2.33 widths from the title down once the page has
+       centred it; move them much further and it wants refitting.
+
+       --u is the placement's unit, a 64th of a work: 1vw on a phone to within a
+       fraction of a pixel, and a unit of the WORK rather than the screen, so a
+       placement keeps its shape wherever --w is capped. */
+    .row {
+      --w: min(calc((100vw - var(--pad) - var(--gap)) / 1.5),
+               calc((100svh - 184px) / 2.33));
+      --u: calc(var(--w) / 64);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: var(--pad);
+      padding: 0 var(--pad);
+      scrollbar-width: none;
+    }
+    .row::-webkit-scrollbar { display: none; }
+    .work {
+      width: var(--w);
+      --h: calc(var(--w) / var(--a));
+      scroll-snap-align: start;
+    }
+    .work img { height: var(--h); }
+    /* Placed by hand rather than by rule: work N moves --mxN across and --myN
+       down from where the strip would put it, set in the block below.
+
+       Across is a MARGIN, so the strip really is that much shorter and each
+       work snaps where it actually sits -- a transform would leave the scroll
+       and the snap points where the work used to be. A margin moves everything
+       after it too, so each one takes off what the work before it already
+       moved: every --mxN stays an offset from the work's own starting place.
+
+       Down is a transform, so it never re-centres the page under the strip.
+       A scrolling strip clips on both axes, so the strip carries 32 units of room
+       above and below that its negative margins take straight back out of the
+       layout -- a work can travel that far either way before it is cut. */
+    .row {
+      margin-top: 0;
+      padding-block: calc(32 * var(--u));
+      margin-block: calc(-32 * var(--u));
+    }
+    /* --grow is a scale here and not a size, about the work's own centre, so
+       a larger work takes nothing from the placement of the others. */
+    .work,
+    .work:nth-child(2) { transform: translateY(calc(var(--my, 0) * var(--u))) scale(var(--grow, 1)); }
+    .row { align-items: flex-start; }
+    .work:nth-child(1) { --my: var(--my1); margin-left: calc(var(--mx1) * var(--u)); }
+    .work:nth-child(2) { --my: var(--my2); margin-left: calc((var(--mx2) - var(--mx1)) * var(--u)); }
+    .work:nth-child(3) { --my: var(--my3); margin-left: calc((var(--mx3) - var(--mx2)) * var(--u)); }
+    /* Overlapping works would otherwise cover each other with their black. Under
+       lighten the brighter pixel wins, so black shows whatever lies beneath it
+       and only the light in each picture is ever on top. */
+    .work { mix-blend-mode: lighten; }
+  }
+
+  /* ---- mobile placement --------------------------------------------------
+     Written by hand, or by index.html#edit: open the page at phone width with
+     #edit on the end of the address, drag the works, and the panel it shows
+     prints this block with the new numbers in it. Numbers are in --u, a 64th
+     of a work's width -- read them as vw on a phone. */
+  @media (max-width: 700px), (orientation: portrait) {
+    .row {
+      --mx1: 0.9;   --my1: 1.5;
+      --mx2: -18.9; --my2: 27.2;
+      --mx3: -34.7; --my3: 3.5;
+    }
+  }
+
+  /* ---- the scroll bar ---------------------------------------------------
+     With the works overlapping, half a picture at the edge no longer reads as
+     "more this way", so the strip gets a scrollbar of its own, under the title
+     line: a short hairline track and a red thumb on it, as long as the share
+     of the strip on screen and where that share is. Drag it or tap it and the strip follows. The strip's own
+     scrollbar stays hidden -- this one is the page's type, not the system's. */
+  .bar { display: none; }
+  @media (max-width: 700px), (orientation: portrait) {
+    .bar {
+      display: block;
+      position: relative;
+      margin: 0 var(--pad);
+      width: 120px;
+      /* over the works: a work drawn larger, or placed high, reaches up into
+         this band and would otherwise take the tap */
+      z-index: 1;
+      /* a hairline in a 14px band, so a finger can find it */
+      height: 14px;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .bar::before, .bar i {
+      content: "";
+      position: absolute;
+    }
+    /* thumb 3px on a 1px track, centred on the same line */
+    .bar::before { left: 0; right: 0; top: 7px; height: 1px; background: var(--ink-1); }
+    .bar i {
+      left: 0;
+      width: var(--tw, 100%);
+      top: 6px;
+      height: 3px;
+      transform: translateX(var(--tx, 0px));
+      background: var(--accent);
+    }
+    .bar.full { visibility: hidden; }
+  }
+
+  /* ---- #edit ------------------------------------------------------------ */
+  body.editing .row { scroll-snap-type: none; }
+  body.editing .work { cursor: grab; touch-action: none; outline: 1px dashed var(--ink-1); outline-offset: -1px; }
+  body.editing .work.dragging { cursor: grabbing; outline-color: var(--accent); z-index: 1; }
+  #tune {
+    position: fixed;
+    left: 8px; right: 8px; bottom: 8px;
+    z-index: 20;
+    padding: 10px 12px;
+    background: rgba(20,20,20,.92);
+    border: 1px solid var(--ink-0);
+    font-size: 16px;
+    color: var(--ink-3);
+  }
+  #tune pre { font: inherit; white-space: pre; overflow-x: auto; margin: 6px 0 8px; }
+  #tune button {
+    font: inherit;
+    font-size: 18px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    background: none;
+    color: var(--text);
+    border: 1px solid var(--ink-1);
+    padding: 2px 10px;
+    margin-right: 6px;
+    cursor: pointer;
+  }
+  #tune button:hover { color: var(--accent); border-color: var(--accent); }
+  #tune .note { color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<div id="corners">
+  <a class="corner tl back" href="../index.html" aria-label="Back to the piece">&lt;</a>
+  <span class="corner tr">Imaginary Garden</span>
+</div>
+
+<main>
+  <!-- Aspects are the sources' own: the three stills are 4:5 to within a
+       thousandth, less whatever a crop below takes off. -->
+  <section class="tri" aria-labelledby="t-meta">
+    <div class="tri-inner">
+      <h2 id="t-meta">Metamorphoses
+        <span class="names"><span>Existence</span><span>Eternity</span><span>Spirit</span></span></h2>
+      <div class="bar" aria-hidden="true"><i></i></div>
+      <div class="row" style="--sum: 2.3115">
+        <!-- drawn 15% larger than the other two: --grow, and --sum counts .7997 x 1.15 -->
+        <figure class="work" style="--a: .7997; --grow: 1.15">
+          <img src="media/metamorphoses-1-760.webp"
+               srcset="media/metamorphoses-1-760.webp 760w, media/metamorphoses-1-1520.webp 974w"
+               sizes="(max-width: 700px) 64vw, (orientation: portrait) 64vw, 33vw"
+               width="974" height="1218" alt="Existence">
+        </figure>
+        <!-- cropped 13% from the left and 2% from the right: --a is the
+             source's .7998 x .85, and --x is 13 / (13 + 2) -->
+        <figure class="work crop-l" style="--a: .6798; --x: 86.667%">
+          <img src="media/metamorphoses-2-760.webp"
+               srcset="media/metamorphoses-2-760.webp 760w, media/metamorphoses-2-1520.webp 1510w"
+               sizes="(max-width: 700px) 64vw, (orientation: portrait) 64vw, 33vw"
+               width="1510" height="1888" alt="Eternity">
+        </figure>
+        <!-- cropped 11% from the left: --a is the source's .8000 x .89 -->
+        <figure class="work crop-l fade-l" style="--a: .7120">
+          <img src="media/metamorphoses-3-760.webp"
+               srcset="media/metamorphoses-3-760.webp 760w, media/metamorphoses-3-1520.webp 1520w"
+               sizes="(max-width: 700px) 64vw, (orientation: portrait) 64vw, 33vw"
+               width="1916" height="2395" alt="Spirit">
+        </figure>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  // A video plays from the start each time it comes into view, once, and then
+  // holds its last frame -- the grown plant -- until it has left and come back.
+  //
+  // "In view" is 60% of it visible and "left" is under 25%, and the gap between
+  // the two is deliberate: a single threshold would restart a video that a
+  // scroll happened to nudge back and forth across it. The observer's root is
+  // the viewport, and intersection is clipped by every scrolling ancestor on
+  // the way up, so the sideways strips on a phone count exactly like the page's
+  // own scroll: the half-work at the edge is under 60% and waits, and swiping it
+  // in is what starts it.
+  //
+  // Leaving pauses and nothing more. The poster is frame 0, so a video that has
+  // never played shows exactly what its first play starts on; one left
+  // mid-growth shows wherever it stopped. Either way the replay begins from 0.
+  (function () {
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    const videos = document.querySelectorAll(".work video");
+
+    function start(v) {
+      v.currentTime = 0;
+      const p = v.play();
+      if (p) p.catch(function () {});
+    }
+
+    const io = new IntersectionObserver(function (entries) {
+      for (const e of entries) {
+        const v = e.target;
+        if (e.intersectionRatio >= 0.6) {
+          if (v.dataset.seen) continue;
+          v.dataset.seen = "1";
+          if (!still.matches) start(v);
+        } else if (e.intersectionRatio < 0.25) {
+          delete v.dataset.seen;
+          v.pause();
+        }
+      }
+    }, { threshold: [0, 0.25, 0.6, 1] });
+
+    // Reduced motion never autoplays; a tap plays it. The tap works for
+    // everyone, and replays a video that has already finished.
+    for (const v of videos) {
+      io.observe(v);
+      v.addEventListener("click", function () { start(v); });
+    }
+  })();
+
+  // The chrome fades in once the font has landed, so the labels never reflow
+  // from the fallback in front of you.
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () {
+    document.body.classList.add("ready");
+  });
+</script>
+
+<script>
+  // The bar: the thumb is the share of the strip on screen, drawn where that
+  // share is. Pointing at the track scrolls the strip so the thumb centres
+  // under the pointer, and dragging keeps it there -- no smoothing, so the
+  // strip moves exactly with the finger. Hidden when there is nothing to
+  // scroll, which is always the case on the row layout.
+  for (const bar of document.querySelectorAll(".bar")) {
+    const row = bar.parentNode.querySelector(".row");
+    const thumb = bar.querySelector("i");
+    function draw() {
+      const W = row.scrollWidth, V = row.clientWidth, T = bar.clientWidth;
+      bar.classList.toggle("full", W - V < 2);
+      const tw = T * V / W;
+      bar.style.setProperty("--tw", tw + "px");
+      bar.style.setProperty("--tx", (T - tw) * row.scrollLeft / Math.max(1, W - V) + "px");
+    }
+    function seek(e) {
+      const r = bar.getBoundingClientRect();
+      const tw = thumb.offsetWidth;
+      const f = Math.min(1, Math.max(0, (e.clientX - r.left - tw / 2) / Math.max(1, r.width - tw)));
+      row.scrollLeft = f * (row.scrollWidth - row.clientWidth);
+    }
+    bar.addEventListener("pointerdown", function (e) {
+      bar.setPointerCapture(e.pointerId);
+      // snapping would fight a drag, pulling the strip to the nearest work
+      // under the finger; it comes back on release and settles from there
+      row.style.scrollSnapType = "none";
+      seek(e);
+      const up = () => {
+        row.style.scrollSnapType = "";
+        bar.removeEventListener("pointermove", seek);
+        bar.removeEventListener("pointerup", up);
+        bar.removeEventListener("pointercancel", up);
+      };
+      bar.addEventListener("pointermove", seek);
+      bar.addEventListener("pointerup", up);
+      bar.addEventListener("pointercancel", up);
+    });
+    row.addEventListener("scroll", draw, { passive: true });
+    addEventListener("resize", draw);
+    draw();
+  }
+</script>
+
+<script>
+  // #edit: drag the works to place them on a phone, then copy the block the
+  // panel prints over the "mobile placement" block in the stylesheet. Nothing
+  // here runs without the hash. Placements survive a reload through
+  // localStorage, so the page can be refreshed mid-session; Reset clears them.
+  (function () {
+    // Typing #edit onto an open page is a same-document jump, not a load, so
+    // nothing below would run until a refresh. Reload on the way in and out.
+    addEventListener("hashchange", function (e) {
+      if (e.oldURL.endsWith("#edit") !== e.newURL.endsWith("#edit")) location.reload();
+    });
+    if (location.hash !== "#edit") return;
+    const KEY = "ig-mobile-placement";
+    const works = [...document.querySelectorAll(".work")];
+    const narrow = matchMedia("(max-width: 700px), (orientation: portrait)");
+    const round = n => Math.round(n * 10) / 10;
+    const row = document.querySelector(".row");
+    const read = w => {
+      const n = works.indexOf(w) + 1, cs = getComputedStyle(row);
+      return ["--mx" + n, "--my" + n].map(k => parseFloat(cs.getPropertyValue(k)) || 0);
+    };
+
+    document.body.classList.add("editing");
+    const panel = document.createElement("div");
+    panel.id = "tune";
+    panel.innerHTML = '<span class="note"></span><pre></pre>' +
+      '<button type="button" data-do="copy">Copy</button>' +
+      '<button type="button" data-do="reset">Reset</button>';
+    document.body.append(panel);
+    const note = panel.querySelector(".note");
+    const pre = panel.querySelector("pre");
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (saved) saved.forEach(([x, y], i) => set(works[i], x, y));
+    } catch (e) {}
+
+    function set(w, x, y) {
+      const n = works.indexOf(w) + 1;
+      row.style.setProperty("--mx" + n, round(x));
+      row.style.setProperty("--my" + n, round(y));
+    }
+    function css() {
+      return "@media (max-width: 700px), (orientation: portrait) {\n  .row {\n" + works.map((w, i) => {
+        const [x, y] = read(w);
+        return "    --mx" + (i + 1) + ": " + round(x) + "; --my" + (i + 1) + ": " + round(y) + ";";
+      }).join("\n") + "\n  }\n}";
+    }
+    function render() {
+      note.textContent = narrow.matches
+        ? "Drag a work to move it. Scroll the strip with a trackpad or the wheel."
+        : "Make the window taller than it is wide, or narrower than 700px -- placement only applies to the strip.";
+      pre.textContent = css();
+      try { localStorage.setItem(KEY, JSON.stringify(works.map(read))); } catch (e) {}
+    }
+
+    for (const w of works) {
+      w.addEventListener("pointerdown", function (e) {
+        if (!narrow.matches) return;
+        e.preventDefault();
+        w.setPointerCapture(e.pointerId);
+        w.classList.add("dragging");
+        const [x0, y0] = read(w);
+        // px -> --u: a 64th of a work's laid-out width (the middle one's, which
+        // is never scaled)
+        const px = 64 / works[1].offsetWidth;
+        const sx = e.clientX, sy = e.clientY;
+        function move(e) { set(w, x0 + (e.clientX - sx) * px, y0 + (e.clientY - sy) * px); render(); }
+        function up() {
+          w.classList.remove("dragging");
+          w.removeEventListener("pointermove", move);
+          w.removeEventListener("pointerup", up);
+          w.removeEventListener("pointercancel", up);
+        }
+        w.addEventListener("pointermove", move);
+        w.addEventListener("pointerup", up);
+        w.addEventListener("pointercancel", up);
+      });
+      // no image ghost-drag in the way of the pointer
+      w.querySelector("img").draggable = false;
+    }
+
+    panel.addEventListener("click", function (e) {
+      const act = e.target.dataset && e.target.dataset.do;
+      if (act === "copy") navigator.clipboard.writeText(pre.textContent).then(
+        () => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1200); });
+      if (act === "reset") {
+        for (let n = 1; n <= works.length; n++) { row.style.removeProperty("--mx" + n); row.style.removeProperty("--my" + n); }
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        render();
+      }
+    });
+    narrow.addEventListener("change", render);
+    render();
+  })();
+</script>
+</body>
+</html>

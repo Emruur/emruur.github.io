@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About — Emre Uğur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* The palette is index.html's, copied rather than reinvented -- the two pages
+     have to agree on black, on the five greys and on the one red, and this is
+     the only place a colour is written down here too.
+
+     Black-background only, for the reason set out at the top of index.html's
+     stylesheet: this is a picture of LIGHT, and the bloom that makes it one has
+     no counterpart on paper. */
+  :root {
+    --bg:     #000;
+    --text:   #ffffff;
+    --accent: #ff3131;
+    --ink-0:  #2d2d2d;
+    --ink-1:  #565656;
+    --ink-2:  #979797;
+    --ink-3:  #d9d9d9;
+    --ink-4:  #ffffff;
+    --bloom:  #d4d4d4;
+  }
+
+  html, body { height: 100%; background: var(--bg); }
+
+  /* The page never scrolls, at any size -- index.html's promise, kept. Where
+     the copy does not fit, the COLUMN scrolls and the page does not, which is
+     what keeps the corner labels pinned to the window instead of sliding
+     over the paragraphs they are meant to frame. */
+  body {
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* The left half, as a real box. #stack is absolutely positioned inside it and
+     therefore contributes nothing to its size, which is the whole point:
+     buildGrid() measures this element to decide how many characters fit, and a
+     box whose size depended on the grid it is sizing could not be measured. */
+  #plate { position: relative; }
+
+  /* Cornered, not centred: flush to the bottom and left of the plate, which on
+     the wide layout is the bottom-left of the WINDOW. The portrait is
+     height-bound at every size the grid is fitted to, so the slack SCALE leaves
+     all goes above and to the right of it -- the figure sits in the corner and
+     the void opens diagonally away from it, toward the copy. The glow runs off
+     both edges rather than stopping short of them, which is the point of
+     putting it in a corner at all. */
+  #stack {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    opacity: 0;
+    transition: opacity .6s ease;
+  }
+  #stack.ready { opacity: 1; }
+
+  /* One grid, drawn once per brightness band -- see BANDS in the script. The
+     first layer is in flow and gives the stack its size; the rest sit exactly
+     on top of it, which is safe because every layer is the same monospace grid
+     at the same size, so cell (i,j) lands on the same pixel in all of them. */
+  #stack pre {
+    /* The browser's default monospace, and not by preference: a ramp that
+       reaches outside one family is served by the fallback at the FALLBACK's
+       advance, and a row then stops being a grid, because a row is only a grid
+       while every cell in it is one width. The layers would drift out of column
+       and the bright cores would sit beside the haze they belong to rather than
+       on it. Note what NOT to name here: ui-monospace / SF Mono draws this ramp
+       at three different widths. This page's ramp is all ASCII, which is the
+       same problem solved at the root, but measure() still says so in the
+       console if a machine ever turns up where it is not true. */
+    font-family: monospace;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    white-space: pre;
+    /* font-size, line-height and colour are all set by script */
+    font-size: 9px;
+    line-height: 1.2;
+    text-rendering: optimizeSpeed;
+    user-select: none;
+    position: relative;
+    /* The box is buildGrid's to decide and never the text's. Every layer is
+       given an explicit width and height there, and `size` containment is what
+       makes those stick: with it, a line of text can no longer widen the <pre>
+       it sits in. That is what lets repaint() strip the trailing spaces off
+       every line without the five layers coming out five different widths. */
+    contain: size layout style;
+  }
+  #stack pre + pre { position: absolute; top: 0; left: 0; }
+
+  /* ---- the right half --------------------------------------------------
+     The paragraphs are centred in what is left after the padding, and the
+     inset is sized to clear the corner label above it: a top corner sits at
+     --pad plus about one 24px VT323 line, so ~64px, and the copy starts below
+     that with room to spare. Without it the heading would run under CREATIVE
+     PORTFOLIO at the very window widths where the column is widest. */
+  #copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* MARGIN for the vertical clearance, not padding, and the difference is the
+       whole reason CREATIVE PORTFOLIO stays readable. This column scrolls, and
+       a scroll viewport clips at its BORDER box, so padding is only ever seen
+       at the ends of the scroll: mid-scroll the paragraphs ran right up to the
+       column's edges and straight under the label in the corner above them.
+       Margin insets the viewport itself, so the text is clipped before it
+       reaches the band that label lives in, at every scroll position. The
+       horizontal inset has no such problem and stays padding.
+
+       The two numbers differ now that the bottom corners are gone: the top has
+       a label to clear, and the foot of the column has only the window edge. */
+    margin: 96px 0 56px;
+    padding: 0 clamp(24px, 4vw, 72px);
+    /* min-height:0 is what lets a flex/grid item shrink below its content and
+       therefore scroll at all; without it the column simply overflows. */
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink-0) transparent;
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  body:has(#stack.ready) #copy { opacity: 1; }
+
+  /* VT323 for the heading, the grid's own monospace for the body. The split is
+     deliberate: VT323 is this site's voice for LABELS -- the nav, the corners,
+     the menu -- and it is still legible at 48px with the nav's own tracking.
+     Three paragraphs of it is a different thing to ask of it, so the running
+     text is set in the face the picture beside it is drawn in. */
+  #copy h1 {
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    font-size: 48px;
+    line-height: 1;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: .7em;
+  }
+  #copy p {
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-2);
+    max-width: 46ch;
+  }
+  #copy p + p { margin-top: 1.5em; }
+
+  /* ---- the frame -------------------------------------------------------
+     index.html's #corners, cut to two: what the page is, top right, and the way
+     out of it, top left. The bottom edge is left to the portrait, which now
+     ends there -- a label in either bottom corner would be sitting inside the
+     picture's own glow rather than framing it.
+
+     The fade is the picture's own. #stack gets `ready` when the grid is built,
+     and :has() carries the cue across to here and to #copy -- the corners are
+     not a sibling of the stack on this page, as they are on index.html, so the
+     descendant form does the work the sibling combinator did there. Still one
+     cue, still no second copy of it in script. */
+  #corners {
+    --pad: clamp(16px, 2.4vw, 30px);
+    position: fixed;
+    inset: 0;
+    /* a frame is not a surface to click: only the two links take the pointer
+       back, and nothing here may eat a hover meant for the copy column */
+    pointer-events: none;
+    z-index: 10;
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    font-size: 24px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    opacity: 0;
+    transition: opacity .8s ease .25s;
+  }
+  body:has(#stack.ready) #corners { opacity: 1; }
+
+  /* The padding is the corner's own, not the frame's, so the label is held off
+     the window edge AND the link's hit area runs right out to it. */
+  #corners .corner {
+    position: absolute;
+    padding: var(--pad);
+    white-space: nowrap;
+    color: inherit;
+    text-decoration: none;
+  }
+  #corners .tl { top: 0; left: 0; color: var(--ink-3); font-size: 28px; }
+  #corners .tr { top: 0; right: 0; }
+  #corners .tr em { color: var(--ink-3); font-style: normal; }
+
+  /* The way back, as a chevron and no word. It is a real character and not a
+     drawn shape -- the dropdown's caret in index.html is built out of borders
+     because VT323 has no U+25BE, but "<" is plain ASCII and the family has it,
+     so there is nothing here for a fallback to be called in for.
+
+     Set larger than the label opposite it and at --text, because a lone glyph
+     carries less than a word does at the same size and this one is the only
+     control on the page. */
+  #corners .back {
+    font-size: 40px;
+    line-height: .8;
+    letter-spacing: 0;          /* tracking after a single glyph is just a gap */
+    color: var(--text);
+  }
+
+  /* The nav's underline wipe is not inherited here, and deliberately. It is a
+     bar drawn the width of a WORD, swept from one end to the other; under a
+     single chevron it has nothing to travel across and reads as a stray dash
+     rather than a gesture.
+     
+     So the chevron answers the pointer by doing what it means instead: it goes
+     to the red every other control on this site goes to, and steps back the way
+     it is pointing. Two properties, one of them a transform, so the move is
+     compositor-side and the hover costs a frame of nothing. */
+  #corners a.corner {
+    pointer-events: auto;
+    cursor: pointer;
+    display: inline-block;
+    transition: color .15s ease, transform .22s cubic-bezier(.22, 1, .36, 1);
+  }
+  #corners a.corner:hover { color: var(--accent); transform: translateX(-.12em); }
+
+  /* Narrow: the halves stack, the portrait takes the upper row and the copy
+     scrolls in the lower one. The page still does not scroll, so the two
+     corners are still the window's. 1fr for the picture and 1fr for the text
+     would starve the picture, which is the subject.
+
+     The portrait stays bottom-left in its own row, so it meets the copy rather
+     than floating above it -- which is why the column wants more room above it
+     here than the wide layout needs and less below. */
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 1.15fr 1fr; }
+    #copy {
+      margin: 28px 0 32px;
+      padding: 0 clamp(20px, 6vw, 48px);
+      justify-content: flex-start;
+    }
+    #copy h1 { font-size: 38px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="plate">
+  <div id="stack" role="img" aria-label="ASCII rendering of a portrait, lit against black"></div>
+</div>
+
+<!-- PLACEHOLDER COPY. Lorem, not writing: none of this is meant to be read or
+     kept, and it is here so the column's measure, leading and colour can be
+     judged against the picture beside it. Replace the whole block. -->
+<div id="copy">
+  <h1>About</h1>
+  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+     tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+     veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+     commodo consequat.</p>
+  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum
+     dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
+     proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+  <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium
+     doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore
+     veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+</div>
+
+<!-- The frame, at its shortest: what the page is, and the way out of it. The
+     chevron is the only control here, so it carries a label for anyone who
+     cannot see that it is pointing back at the piece. -->
+<div id="corners">
+  <a class="corner tl back" href="index.html" aria-label="Back to the piece">&lt;</a>
+  <span class="corner tr"><em>Creative</em> Portfolio</span>
+</div>
+
+<script src="portrait-frames.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---- everything adjustable, in one place ----------------------------- */
+
+  var SCALE     = 0.88;           // how much of the left half the portrait fills
+  var CHAR_SIZE = 9;              // CSS pixels per character, before fitting
+  var FLOOR     = 16;             // black point: cells dimmer than this vanish
+  var GAMMA     = 0.60;           // <1 lifts midtones, >1 crushes them
+
+  // Darkest to lightest; first must be a space, and a ramp has to climb in INK
+  // COVERAGE or a glyph lighter than the one before it reads as a dent.
+  //
+  // The tonal ramp, not the vine's " ·.∙•○●■". Those are growing dots, chosen
+  // because the vine is beads threaded on stems a cell or two wide and every
+  // horizontal bar smeared sideways into its neighbours. A face is the opposite
+  // subject: continuous tone across broad areas, where the dots band visibly
+  // and the bars are what carry the mid greys. Being all ASCII is the second
+  // win -- there is no glyph here that can fall out of the family and bring the
+  // fallback's advance with it, which is the bug the vine's font note describes.
+  var RAMP      = " .:-=+*#%@";
+
+  // Brightness has to be its own channel. With a single ink colour the only
+  // contrast available is ink COVERAGE, and a small glyph on black reads as
+  // grey however bright that ink is. So the grid is drawn once per band, each
+  // layer a flat grey stepped off the photograph's own luminance, where the
+  // shadowed side sits near black and the lit edge of the face reaches white.
+  //
+  // `upto` is the highest ramp index the band claims, so the bands have to be
+  // in order and the last one has to reach the end of the ramp.
+  //
+  // The cuts are NOT an even split of the ten steps, and that is the whole of
+  // what keeps this readable as a face. Measured off portrait-frames.js at the
+  // FLOOR and GAMMA above, the ramp fills out as
+  //   0:30% 1:3% 2:10% 3:10% 4:9% 5:7% 6:13% 7:14% 8:4% 9:1%
+  // so the cuts below hand the bands 43 / 18 / 20 / 18 / 1 percent of the grid.
+  // The 1% is the number that matters. The obvious even split (1,3,5,7,9) puts
+  // 9% of every cell into the widest bloom, and on a subject with a lit
+  // forehead and a white shirt -- broad bright AREAS, not a scatter of beads --
+  // that is not a halo, it is a smear with a face somewhere behind it.
+  //
+  // The radii below are the vine's, cut by about a third, and that is the same
+  // argument from the other end. The vine's glow is tuned for BEADS: isolated
+  // lit cells with black on every side, where a 38px halo has somewhere to fall
+  // off into. Here the lit cells arrive in contiguous fields -- a cheek, a
+  // shoulder -- and each one's halo lands on its neighbours, so the glow adds
+  // to itself across the whole region instead of ringing it. At the vine's
+  // radii the shirt went to a single white mass and the eyes and the bridge of
+  // the nose washed out with it. A still page rasters these filters exactly
+  // once, so the cost was never the reason to shrink them.
+  var BANDS = [
+    { upto: 2, color: "var(--ink-0)" },   // the shadowed side: recedes
+    { upto: 4, color: "var(--ink-1)" },   // the turn of the cheek, hair
+    { upto: 6, color: "var(--ink-2)", glow: "drop-shadow(0 0 2px var(--ink-2))" },
+    { upto: 8, color: "var(--ink-3)", glow: "drop-shadow(0 0 3px var(--ink-3)) drop-shadow(0 0 8px var(--ink-3))" },
+    { upto: 9, color: "var(--ink-4)", glow: "drop-shadow(0 0 4px var(--bloom)) drop-shadow(0 0 11px var(--bloom)) drop-shadow(0 0 24px var(--bloom))" }
+  ];
+
+  // The glow is a FILTER, not a text-shadow. A text-shadow is blurred by skia
+  // while the layer is rastered, once per shadow, at full device resolution; a
+  // filter is applied by the compositor to the layer's finished texture, so the
+  // glyphs raster once, plain, and the blur is a shader pass. It matters less
+  // here than on the vine -- this page paints once -- but chained drop-shadows
+  // also COMPOSE, the second blurring the first's output, and that softer
+  // falloff is why these radii read wider than their numbers.
+
+  /* ---------------------------------------------------------------------- */
+
+  var data = window.ASCII_PORTRAIT;
+  var plate = document.getElementById("plate");
+  var stack = document.getElementById("stack");
+  var pres = BANDS.map(function (b) {
+    var el = document.createElement("pre");
+    el.style.color = b.color;
+    if (b.glow) { el.style.filter = b.glow; }
+    stack.appendChild(el);
+    return el;
+  });
+  var pre = pres[0];              // the layer in flow: it sizes the stack
+  if (!data) {
+    pre.textContent = "no payload -- see README.md for the bake that makes portrait-frames.js";
+    stack.style.opacity = 1;
+    return;
+  }
+
+  // No will-change:filter here, unlike the vine. That property buys a layer the
+  // filter can be applied to without falling back into raster, and it is worth
+  // its memory when the text underneath changes 24 times a second. This page
+  // writes its text once. Holding five promoted layers for the life of a static
+  // page is the cost with none of the saving.
+
+  // The payload is a high-resolution MASTER. The grid actually drawn is derived
+  // from the portrait's size and CHAR_SIZE, and the master is resampled into
+  // it, so a smaller portrait means FEWER characters rather than smaller ones.
+  var mCols = data.cols, mRows = data.rows, cells = mCols * mRows;
+  var ASPECT = mCols / mRows;
+  var maxLevel = data.levels - 1;
+
+  // This page has no clock and no decoder beyond the first frame. A payload
+  // with deltas in it is a movie handed to a renderer that will only ever show
+  // frame 0 of it -- which looks like a still and is a mistake, so say so.
+  if (data.deltas && data.deltas.length) {
+    console.warn("portrait: payload carries " + data.deltas.length +
+      " delta frames; this page draws frame 0 only");
+  }
+
+  /* ---- decoder -------------------------------------------------------- */
+
+  var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var V = new Uint8Array(128);
+  for (var i = 0; i < B64.length; i++) V[B64.charCodeAt(i)] = i;
+
+  var levels = new Uint8Array(cells);
+  var painted = [];               // the string each layer is currently showing
+  // The spaces at the end of a line draw nothing and cost exactly what ink
+  // costs to shape. See repaint(), where they come off.
+  var TRAIL = / +(?=\n|$)/g;
+  var lut = new Array(data.levels);
+  var band = new Uint8Array(data.levels);
+
+  function seed() {
+    for (var k = 0; k < cells; k++) levels[k] = V[data.key.charCodeAt(k)];
+  }
+
+  // level -> character, and level -> which layer draws it. Both fall out of the
+  // same tone curve, so a cell is looked up once and the band comes for free.
+  function buildLut() {
+    var span = data.white - FLOOR, b;
+    for (var lv = 0; lv <= maxLevel; lv++) {
+      var v = (lv * 255 / maxLevel - FLOOR) / span;
+      v = v < 0 ? 0 : v > 1 ? 1 : Math.pow(v, GAMMA);
+      var ci = Math.round(v * (RAMP.length - 1));
+      lut[lv] = RAMP.charAt(ci);
+      for (b = 0; b < BANDS.length - 1 && ci > BANDS[b].upto; b++) {}
+      band[lv] = b;
+    }
+  }
+
+  /* ---- display grid ---------------------------------------------------- */
+
+  // Monospace advance width varies by font, so measure it rather than assuming
+  // 0.6em -- guessing would distort the face. Cells must end up a true 2:1, the
+  // ratio the bake grid was chosen against (291 / 0.7273 / 200 = 2.00).
+  var advanceRatio = 0.6;
+  var gCols = 0, gRows = 0, layers = [], colW = null, rowW = null, tmp = null;
+
+  function measure() {
+    var probe = document.createElement("canvas").getContext("2d");
+    var style = getComputedStyle(pre);
+    probe.font = style.fontWeight + " 100px " + style.fontFamily;
+    var w = probe.measureText("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM").width;
+    if (w > 0) advanceRatio = w / 40 / 100;
+
+    // One font or no grid. If the ramp reaches outside the family the fallback
+    // brings its own advance with it, and the layers quietly stop sharing
+    // columns -- which reads as a slightly fuzzy portrait, not as a bug, which
+    // is exactly why it needs saying out loud.
+    for (var r = 1; r < RAMP.length; r++) {
+      if (Math.abs(probe.measureText(RAMP.charAt(r)).width - w / 40) > 0.5) {
+        console.warn("portrait: " + style.fontFamily + " has no '" + RAMP.charAt(r) +
+          "' -- the fallback's advance will pull the colour layers out of column");
+        break;
+      }
+    }
+  }
+
+  // Area-weighted resampling weights, as a flat CSR-style table.
+  //
+  // Partial source cells MUST contribute fractionally. Snapping each output
+  // cell to whole source cells looks harmless but is not: at a ratio near 2.7
+  // some outputs average 2 source rows and others 3, which along a soft tonal
+  // gradient -- the turn of a cheek, the line of the jaw -- reads as banding.
+  function buildWeights(dst, src) {
+    var start = new Int32Array(dst + 1), idx = [], w = [];
+    for (var i = 0; i < dst; i++) {
+      start[i] = idx.length;
+      var a = i * src / dst, b = (i + 1) * src / dst;
+      var hi = Math.min(Math.ceil(b), src), sum = 0;
+      for (var j = Math.floor(a); j < hi; j++) {
+        var overlap = Math.min(b, j + 1) - Math.max(a, j);
+        if (overlap > 0) { idx.push(j); w.push(overlap); sum += overlap; }
+      }
+      for (var k = start[i]; k < w.length; k++) w[k] /= sum;
+    }
+    start[dst] = idx.length;
+    return { start: start, idx: new Int32Array(idx), w: new Float32Array(w) };
+  }
+
+  function buildGrid() {
+    // The left half's box, read fresh. #stack is absolutely positioned inside
+    // #plate and so contributes nothing to it -- which is what makes this
+    // measurable at all, and why the grid is not fitted to the WINDOW the way
+    // index.html fits the vine. Change the column split in the CSS and this
+    // follows it with nothing to keep in step by hand.
+    var box = plate.getBoundingClientRect();
+    var cellW = advanceRatio * CHAR_SIZE, cellH = 2 * cellW;
+    var availH = box.height * SCALE;
+    var availW = box.width * SCALE;
+
+    var r = Math.round(availH / cellH);
+    var c = Math.round(r * ASPECT);
+    if (c * cellW > availW) { c = Math.floor(availW / cellW); r = Math.round(c / ASPECT); }
+
+    gRows = Math.max(8, Math.min(r, mRows));
+    gCols = Math.max(6, Math.min(c, mCols));
+
+    // The cell is the free variable, not the height: the row count is decided
+    // first, against the master's limit, and then the size is whatever makes
+    // those rows fill the space. Below the cap this changes nothing -- the
+    // arithmetic hands back the CHAR_SIZE it started from -- and above it a
+    // tall window buys BIGGER characters once it can no longer buy more of them.
+    var size = Math.min(availH / (gRows * 2 * advanceRatio),
+                        availW / (gCols * advanceRatio));
+
+    // ...but the ROW PITCH it implies has to be a whole CSS pixel, because
+    // Safari floors the used line-height to one and Chrome keeps it to 1/64.
+    // A fractional pitch fills the box in Chrome and falls up to a pixel per
+    // row short in Safari -- and worse than short: the ADVANCE stays fractional
+    // while the pitch is truncated, so the cell loses the 1:2 the bake grid
+    // assumes and the face comes out squashed as well as small.
+    //
+    // So the pitch is what gets chosen, and the font size is read off it rather
+    // than the other way round. At lineHeight = pitch and fontSize =
+    // pitch / (2 * advance) the cell is exactly pitch/2 x pitch in every engine.
+    // Rounding to nearest can ask for at most half a pixel per row more than
+    // there is, so give a row back when it does.
+    var pitch = Math.max(2, Math.round(size * 2 * advanceRatio));
+    if (gRows * pitch > availH) gRows = Math.max(8, Math.floor(availH / pitch));
+    size = pitch / (2 * advanceRatio);
+
+    painted.length = 0;         // the grid changed, so nothing on screen matches
+    layers = BANDS.map(function () { return new Array(gRows * (gCols + 1)); });
+    colW = buildWeights(gCols, mCols);
+    rowW = buildWeights(gRows, mRows);
+    tmp = new Float32Array(mRows * gCols);
+
+    // The box, written down rather than left to the text. `contain: size` in
+    // the CSS is the half of this that makes it binding; these are the numbers
+    // it binds to, and they are exactly the ones the untrimmed grid would
+    // arrive at by itself -- columns times the cell, rows times the pitch.
+    var boxW = gCols * size * advanceRatio, boxH = gRows * pitch;
+    stack.style.width = boxW + "px";
+    stack.style.height = boxH + "px";
+
+    for (var L = 0; L < pres.length; L++) {
+      pres[L].style.fontSize = size + "px";
+      pres[L].style.lineHeight = pitch + "px";
+      pres[L].style.width = boxW + "px";
+      pres[L].style.height = boxH + "px";
+    }
+  }
+
+  // Resample the master into the display grid and map through the ramp.
+  // Separable: horizontal pass into tmp[], then vertical straight into the
+  // layers. A cell's glyph goes to the layer its band names and every other
+  // layer gets a space there, so the layers are disjoint and stacking them
+  // reassembles the one grid -- in five brightnesses instead of one.
+  function repaint() {
+    var y, j, k, e, s, L, NL = layers.length;
+    for (y = 0; y < mRows; y++) {
+      var off = y * mCols, to = y * gCols;
+      for (j = 0; j < gCols; j++) {
+        s = 0;
+        for (k = colW.start[j], e = colW.start[j + 1]; k < e; k++)
+          s += levels[off + colW.idx[k]] * colW.w[k];
+        tmp[to + j] = s;
+      }
+    }
+    for (var i = 0; i < gRows; i++) {
+      var base = i * (gCols + 1);
+      for (j = 0; j < gCols; j++) {
+        s = 0;
+        for (k = rowW.start[i], e = rowW.start[i + 1]; k < e; k++)
+          s += tmp[rowW.idx[k] * gCols + j] * rowW.w[k];
+        var lv = Math.round(s);
+        lv = lv < 0 ? 0 : lv > maxLevel ? maxLevel : lv;
+        var at = base + j, b = band[lv];
+        for (L = 0; L < NL; L++) layers[L][at] = " ";
+        layers[b][at] = lut[lv];
+      }
+      // no trailing newline on the last row -- it would add an extra line box
+      var nl = (i === gRows - 1) ? "" : "\n";
+      for (L = 0; L < NL; L++) layers[L][base + gCols] = nl;
+    }
+    for (L = 0; L < NL; L++) {
+      // Two economies, both inherited from the vine and both still worth it on
+      // a page that paints once -- the first outright, the second on resize.
+      //
+      // Trailing spaces: a line is gCols wide in every layer, but on the two
+      // brightest ones nearly all of it is empty, and Chrome re-shapes every
+      // one of those spaces each time the text changes. Stripping them is safe
+      // only because buildGrid pins the box; a <pre> left to size itself would
+      // come out a different width on every layer.
+      //
+      // And not writing at all: textContent is what invalidates a layer, and an
+      // invalidated layer is re-shaped, re-rastered AND re-blurred. A layer
+      // about to be handed the string it already has is left alone.
+      var text = layers[L].join("").replace(TRAIL, "");
+      if (text !== painted[L]) { painted[L] = text; pres[L].textContent = text; }
+    }
+  }
+
+  /* ---- no playback -----------------------------------------------------
+     The subject is a photograph: one frame, no deltas, nothing to drive. So
+     there is no clock here, no requestAnimationFrame and no visibilitychange
+     -- the page paints once and the only thing that ever asks it to paint
+     again is a window that changed shape under it. */
+
+  var resizing = 0;
+  window.addEventListener("resize", function () {
+    // Coalesced to one frame. A drag across the screen fires this continuously,
+    // and a repaint here is the full resample plus five layers of re-shaped
+    // text and re-blurred glow -- the one moment this page does real work, and
+    // the one place it can be asked to do it faster than it can.
+    if (resizing) return;
+    resizing = requestAnimationFrame(function () {
+      resizing = 0;
+      buildGrid();
+      repaint();
+    });
+  });
+
+  function start() {
+    measure();
+    buildLut();
+    buildGrid();
+    seed();
+    repaint();
+    stack.classList.add("ready");
+  }
+
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+  else start();
+})();
+</script>
+</body>
+</html>
