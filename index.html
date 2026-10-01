@@ -492,7 +492,10 @@
        past the leaves -- and every px moved right comes back as room between
        the words and the left of the vine */
     body { place-items: start end; }
-    #stack { margin-right: -8px; }
+    /* ...and lifted a little the same way: the top rows are the faintest
+       haze of the whole picture, so letting 20px of them run off the top
+       edge costs nothing and raises the vine's body on the screen */
+    #stack { margin-right: -8px; margin-top: -20px; }
     /* 29px from ~390 up; under that it gives way with the window, so
        PHOTOGRAPHY, the widest word, still ends short of the leaves at 360 */
     #gaze { --ls: .08em; font-size: min(29px, 7.4vw); }
