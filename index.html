@@ -78,9 +78,25 @@
      here: ui-monospace / SF Mono draws this ramp at three different widths.
 
      VT323 loses nothing by going -- the ramp is all dots and no letters -- and
-     the nav below still has it, which is where its letterforms ever did work. */
+     the nav below still has it, which is where its letterforms ever did work.
+
+     Menlo is NAMED now rather than hoped for, and the face after it is carried
+     in the page, because "the one font guaranteed to be there" turned out to be
+     guaranteed only on a Mac. On Android `monospace` is Droid Sans Mono, which
+     has no ∙ ○ ● or ■: four of the eight glyphs went to a fallback, the layers
+     came apart exactly as described above, and the vine read as weak and fuzzy
+     -- which looked like the glow having been switched off for the phone. It
+     never was. MisketRamp is DejaVu Sans Mono, the font Menlo was drawn from,
+     cut down to the ramp plus the "M" that measure() times: one advance
+     (1233/2048, the same 0.602em), ~2KB inline, so it cannot fail to load. A
+     Mac or an iPhone still draws Menlo and changes not at all. */
+  @font-face {
+    font-family: "MisketRamp";
+    src: url(data:font/woff2;base64,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) format("woff2");
+    font-display: block;
+  }
   #stack pre {
-    font-family: monospace;
+    font-family: Menlo, "MisketRamp", monospace;
     font-weight: 400;
     font-variant-ligatures: none;
     white-space: pre;
@@ -162,6 +178,16 @@
      and lets go only when the pointer leaves the group. `.open` is the group's
      hover, set by the script below -- see there for why this is not a :hover on
      the wrapper. The bee agrees with this: its own hover zone is the group. */
+  /* Which side of the vine a word hangs on. A class and not the inline style
+     it used to be, so the phone rule at the foot of the sheet can move a word
+     across without !important; the height stays inline, one number per word. */
+  #gaze .w { right: calc(100% + var(--gap)); }
+  #gaze .e { left: calc(100% + var(--gap)); }
+  /* ...and how far down it. Both heights live on the word itself, as custom
+     properties, so each word's two placements are written side by side; the
+     phone rule below only chooses which one is in force. */
+  #gaze .w, #gaze .e { top: var(--top); }
+
   #gaze button:hover,
   #gaze .drop.open > button {
     color: var(--accent);
@@ -266,9 +292,10 @@
     top: 100%;
     left: 0;
     padding: 1em 0 0;
-    /* ~18px at 430 (was the 15px floor), 26px from ~1180 as before -- the
-       same phone-side bump the words above got */
-    font-size: clamp(17px, 1.07vw + 13.4px, 26px);
+    /* a quarter up on the old line at every width: ~22px at 430, 32px from
+       ~1130. Still two thirds of the word it hangs from, so it reads as that
+       word's list and not as more nav. */
+    font-size: clamp(21px, 1.34vw + 16.8px, 32px);
     line-height: 1.35;
     text-align: left;
     /* column + gap rather than margins on the items: one number for the space
@@ -424,7 +451,7 @@
     pointer-events: none;
     /* the vine's font, for the vine's reason -- same ramp, same missing glyphs,
        same five layers that only stack while every cell is one width */
-    font-family: monospace;
+    font-family: Menlo, "MisketRamp", monospace;
     font-weight: 400;
     font-variant-ligatures: none;
     white-space: pre;
@@ -440,18 +467,43 @@
   /* same disjoint-layer trick as the vine's colour bands */
   #bee-stack pre + pre { position: absolute; top: 0; left: 0; }
 
-  /* Phone width: tighter tracking buys PHOTOGRAPHY back a few characters of
-     overlap with the vine. */
+  /* Phone width: the vine hangs from the RIGHT edge and every word goes to
+     its left. Split either side of a centred vine, each word had ~90px to
+     itself and two of them leaned into the leaves; one column on the open
+     side gives them the whole width the vine leaves. Tighter tracking still
+     buys PHOTOGRAPHY back a few characters. The frame loses its right-hand
+     pair: the vine is standing where they were. */
   @media (max-width: 600px) {
-    #gaze { --ls: .08em; }
+    body { place-items: start end; }
+    /* and a lighter lean into the leaves: the -60px the line above bottoms
+       out at was buying room this column no longer needs, and at that depth
+       PHOTOGRAPHY ran into the beads. -24 sets every word's last letter on
+       the vine's outer fringe. */
+    #gaze { --ls: .08em; --gap: -24px; }
+    /* One column, left-aligned: every word starts at the same x. That x is
+       where PHOTOGRAPHY, the widest word, already began when the words met
+       the vine at their right ends -- 5.3em is that word's width at this
+       tracking, in the words' own em so it holds at every width -- so it
+       stays put and the shorter words stop short of the leaves. */
+    #gaze .w, #gaze .e { right: auto; left: calc(-1 * var(--gap) - 5.3em); top: var(--top-phone); }
+    #corners .br { display: none; }
+    /* ...and the three that stay take some of the room it leaves: at the 2vw
+       lines above they all sat on their 14/16px floors, small enough on a
+       phone to read as a watermark. CREATIVE PORTFOLIO matches CONTACT, a
+       step under the name, and sits over the very top of the vine, where it
+       is only haze. */
+    #corners .tl { font-size: 20px; }
+    #corners .bl, #corners .tr { font-size: 18px; }
   }
 </style>
 </head>
 <body>
 <div id="stack" aria-label="Animated ASCII rendering of a hanging vine growing downward">
   <nav id="gaze" aria-label="Sections">
-    <button type="button" data-href="about.html" style="top: 20%; right: calc(100% + var(--gap));">About</button>
-    <button type="button" data-href="photography.html" style="top: 40%; left: calc(100% + var(--gap));">Photography</button>
+    <!-- no data-href while about.html is unfinished: the word stays, the
+         click does nothing, the same as WebDesign -->
+    <button type="button" class="w" style="--top: 20%; --top-phone: 40%;">About</button>
+    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 80%;">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
          was: the bee aims at these rects every frame and the reveal script
@@ -461,20 +513,18 @@
          that matched it would become a fifth thing the bee flies to and a
          fifth word the growth has to reach before the nav is done.
 
-         SOURCE ORDER IS THE BEE'S ROUTE. It steps through the words with
-         (autoIndex + 1) % buttons.length, so this wrapper sits between the 40%
-         word and the 80% one because it is the 60% word -- swapping the two
-         `style` attributes alone would have left the list reading down the page
-         while the bee flew 20 -> 60 -> 40 -> 80 across it. The reveal script
-         does not care, having measured every box, but it is the same list. -->
-    <div class="drop" style="top: 60%; right: calc(100% + var(--gap));">
+         The bee's route is HEIGHT order, read off the rects (nextDown in the
+         bee script), so these can sit in any order and each word can carry a
+         different height on a phone (--top-phone) without the bee zigzagging.
+         Kept in desktop order anyway, so the source reads like the page. -->
+    <div class="drop w" style="--top: 60%; --top-phone: 20%;">
       <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
       <div class="menu" id="projects-menu">
-        <a class="item" href="#">Origin Library</a>
+        <a class="item" href="https://theoriginlibrary.com" target="_blank" rel="noopener">Origin Library</a>
         <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
       </div>
     </div>
-    <button type="button" style="top: 80%; left: calc(100% + var(--gap));">WebDesign</button>
+    <button type="button" class="e" style="--top: 80%; --top-phone: 60%;">WebDesign</button>
   </nav>
 </div>
 
@@ -1088,7 +1138,15 @@
     requestAnimationFrame(tick);
   }
 
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+  // fonts.ready on its own does not wait for MisketRamp: the layers are empty
+  // until start() fills them, so nothing has asked for that face yet and ready
+  // resolves without it -- and measure() would time the wrong font. So ask for
+  // it by name first. A failed load still starts; the stack's fallback decides.
+  if (document.fonts && document.fonts.load)
+    document.fonts.load('10px "MisketRamp"', RAMP + "M")
+      .catch(function () {})
+      .then(function () { return document.fonts.ready; })
+      .then(start);
   else start();
 })();
 </script>
@@ -1412,6 +1470,20 @@
   }
   function forgetRects() { stackRect = null; btnRects = []; }
 
+  // The rotation's route: the word below this one, or back to the top. Read
+  // off the rects and not the source order, because on a phone the four are
+  // stacked in a different order from the one they are written in, and a bee
+  // stepping through the HTML zigzagged up and down the column. On desktop the
+  // two orders are the same and so is the route.
+  function byHeight() {
+    return buttons.map(function (b, k) { return k; })
+      .sort(function (a, b) { return btnBox(a).top - btnBox(b).top; });
+  }
+  function nextDown(i) {
+    var order = byHeight();
+    return order[(order.indexOf(i) + 1) % order.length];
+  }
+
   function vineLines() {
     if (vineGrid && clock - vineAt < VINE_SAMPLE) return vineGrid;
     vineAt = clock;
@@ -1488,7 +1560,12 @@
   // plant is the thing it has to be next to.
   function aimAt(i) {
     var r = btnBox(i);
-    var mid = window.innerWidth / 2;
+    // the side of the VINE, not of the window: they are the same line while it
+    // hangs centred, and on a phone it hangs from the right, where a long word
+    // like PHOTOGRAPHY can straddle the window's middle and still be the vine's
+    // left-hand word
+    var sb = stackBox();
+    var mid = (sb.left + sb.right) / 2;
     var left = (r.left + r.right) / 2 < mid;
     var y = (r.top + r.bottom) / 2 - LIFT;
     // INSIDE the label, in the gap it leaves between itself and the vine, nose
@@ -1616,7 +1693,7 @@
     // first landing, not from page load.
     if (arrived && hoverIndex < 0 && beeReady) {
       dwell -= dt;
-      if (dwell <= 0) { autoIndex = (autoIndex + 1) % buttons.length; retarget(false); }
+      if (dwell <= 0) { autoIndex = nextDown(autoIndex); retarget(false); }
     }
 
     // Turning off the spring's own velocity, which is already smooth, so no
@@ -1757,16 +1834,18 @@
     halfW = host.offsetWidth / 2;
     halfH = host.offsetHeight / 2;
 
-    var first = aimAt(0);
+    // the top word, wherever the layout has put it
+    autoIndex = byHeight()[0];
+    var first = aimAt(autoIndex);
     x = first.x; y = first.y;
     target = first;
     legFace = facing = first.face;
-    legIndex = 0;
+    legIndex = autoIndex;
     arrived = true;
     dwell = DWELL;
     // start() parks the bee at the first button without ever passing through
     // step(), so the label it is already feeding at has to be lit from here
-    lit(0);
+    lit(autoIndex);
     host.style.zIndex = Z_FRONT;
     draw();
 
@@ -1814,7 +1893,12 @@
     requestAnimationFrame(tick);
   }
 
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start);
+  // the same wait the vine makes, for the same face -- see the end of its script
+  if (document.fonts && document.fonts.load)
+    document.fonts.load('10px "MisketRamp"', " \u00b7.\u2219\u2022\u25cb\u25cf\u25a0M")
+      .catch(function () {})
+      .then(function () { return document.fonts.ready; })
+      .then(start);
   else start();
 })();
 </script>
