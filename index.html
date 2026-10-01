@@ -488,21 +488,21 @@
   @media (max-width: 600px) {
     /* pushed slightly PAST the edge. The vine's own grid carries ~30px of
        empty cells right of its outermost leaves, so the box can overhang the
-       window by 8px (body is overflow:hidden) and still leave ~25px of black
+       window by 3px (body is overflow:hidden) and still leave ~30px of black
        past the leaves -- and every px moved right comes back as room between
        the words and the left of the vine */
     body { place-items: start end; }
     /* ...and lifted a little the same way: the top rows are the faintest
        haze of the whole picture, so letting 20px of them run off the top
        edge costs nothing and raises the vine's body on the screen */
-    #stack { margin-right: -8px; margin-top: -20px; }
+    #stack { margin-right: -3px; margin-top: -20px; }
     /* 29px from ~390 up; under that it gives way with the window, so
        PHOTOGRAPHY, the widest word, still ends short of the leaves at 360 */
     #gaze { --ls: .08em; font-size: min(29px, 7.4vw); }
     /* Placed against the WINDOW, not the vine. On desktop the words hang off
        the vine's sides and have to move with it; here they are a column of
        their own, so #gaze lets go of #stack and covers the viewport instead,
-       and a left of 3rem is simply 3rem from the window's edge, whatever the
+       and a left of 3rem+5px is simply that far from the window's edge, whatever the
        vine's grid decides its width is.
        The heights become fractions of the window rather than of the vine,
        which is 97% of it, so they barely move. Nothing between here and the
@@ -511,7 +511,7 @@
     /* --top-phone marks each word's MIDDLE, not its top edge (hence the
        translate), so four heights spaced evenly about 50% put the group's
        centre on the window's: 26 / 42 / 58 / 74, 16% apart. */
-    #gaze .w, #gaze .e { right: auto; left: 3rem; top: var(--top-phone); transform: translateY(-50%); }
+    #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px); top: var(--top-phone); transform: translateY(-50%); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
