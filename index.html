@@ -1443,6 +1443,10 @@
   /* ---- everything adjustable, in one place ----------------------------- */
 
   var OMEGA   = 3.4;    // spring stiffness; settles a long leg in ~1.4s
+  // The bee itself is switched off, its tour is not: it still crosses the list
+  // and lights each word in turn (and opens PROJECTS), but nothing is drawn and
+  // the vine is not bitten. Set to true to bring the bee itself back.
+  var BEE_SHOWN = false;
   var DWELL   = 1.5;    // seconds spent at a button before moving on
   var ARRIVE  = 8;      // px from the aim point that counts as arrived
   var CALM    = 30;     // ...but only once it is slower than this, px/s
@@ -1590,6 +1594,7 @@
 
   var data = window.ASCII_BEE;
   var host = document.getElementById("bee-stack");
+  if (host && !BEE_SHOWN) host.style.visibility = "hidden";
   // Needed in two places now: the aim is measured off the vine's own edge, and
   // the fade-in waits on its .ready -- so it is read once, here.
   var stack = document.getElementById("stack");
@@ -2057,7 +2062,7 @@
     // before it uses one -- so the isolation the two scripts were written with
     // survives: a bee that throws, stalls or writes rubbish here still cannot
     // stop the plant from growing. See readBite() in the other script.
-    window.BEE_BITE = feed > 0
+    window.BEE_BITE = (BEE_SHOWN && feed > 0)
       ? { x: nose, y: by, r: BLOOM_R, amp: BLOOM_AMP * feed }
       : null;
   }
@@ -2433,7 +2438,9 @@
   // than one that eases off as the air fills -- that version came in a rush
   // and then thinned to a trickle. Each speck fades out partway to the edge
   // (FADE), so the count holds at RATE times a lifetime of ten-odd seconds.
-  var RATE      = 3.5;            // specks a second, always
+  // 8, up from 3.5: the bee added up to ~6 a second while it ate, and with the
+  // bee hidden that is folded into the steady rate.
+  var RATE      = 8;              // specks a second, always
   var CAP       = 140;            // hard ceiling, never reached in practice
   // ...and more where the bee is eating. The bite lifts the vine there into
   // its brightest bands already; this is the same patch burning faster, shed
