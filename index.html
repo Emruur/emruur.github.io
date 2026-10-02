@@ -537,16 +537,14 @@
      column. Tighter tracking still buys PHOTOGRAPHY back a few characters. The frame loses its right-hand
      pair: the vine is standing where they were. */
   @media (max-width: 600px) {
-    /* pushed slightly PAST the edge. The vine's own grid carries ~30px of
-       empty cells right of its outermost leaves, so the box can overhang the
-       window by 3px (body is overflow:hidden) and still leave ~30px of black
-       past the leaves -- and every px moved right comes back as room between
-       the words and the left of the vine */
+    /* The vine here is its own bake, a strip of the footage drawn the full
+       width of the window -- see fillGrid() in the vine's script, which sizes
+       the box to it -- running off the right and bottom edges. Held to the
+       right so that whatever the cell rounding leaves over falls on the black
+       at the left. It used to be pushed 3px past the right edge and lifted
+       20px past the top, to buy the fitted vine room beside the words and
+       raise its body on the screen; the strip's framing does both now. */
     body { place-items: start end; }
-    /* ...and lifted a little the same way: the top rows are the faintest
-       haze of the whole picture, so letting 20px of them run off the top
-       edge costs nothing and raises the vine's body on the screen */
-    #stack { margin-right: -3px; margin-top: -20px; }
     /* 6vw, topping out at 26px past ~430. Sized against PHOTOGRAPHY, the
        widest word, and the leaves nearest it across the whole sway: a 0.6em
        mono advance is half as wide again as VT323's 0.4em, and the 7.4vw that
@@ -597,7 +595,7 @@
     <!-- no data-href while about.html is unfinished: the word stays, the
          click does nothing, the same as WebDesign -->
     <button type="button" class="w" style="--top: 20%; --top-phone: 42.5%;">About</button>
-    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 27.5%;">Photography</button>
+    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 57.5%;">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
          was: the bee aims at these rects every frame and the reveal script
@@ -618,7 +616,7 @@
         <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
       </div>
     </div>
-    <button type="button" class="e" style="--top: 80%; --top-phone: 57.5%;">WebDesign</button>
+    <button type="button" class="e" style="--top: 80%; --top-phone: 27.5%;">WebDesign</button>
   </nav>
 </div>
 
@@ -644,7 +642,16 @@
      where it faces and where it goes are decided frame by frame. -->
 <div id="bee-stack" aria-hidden="true"></div>
 
-<script src="plant-frames.js"></script>
+<!-- Two bakes of the one vine, and a page only ever needs one of them: the whole
+     plant for a window it fits in, and on a phone its top-left quarter at twice
+     the density, drawn twice the size -- see the phone note in the vine's
+     buildGrid(). Written in rather than both listed, so a phone never fetches
+     the megabyte it would not draw. Same breakpoint as the stylesheet's phone
+     block; the vine's script fetches the other one if a window crosses it. -->
+<script>
+  document.write('<script src="' + (window.matchMedia && matchMedia("(max-width: 600px)").matches
+    ? "plant-frames-phone.js" : "plant-frames.js") + '"><\/script>');
+</script>
 <script src="bee-frames.js"></script>
 <script>
 (function () {
@@ -768,7 +775,13 @@
 
   /* ---------------------------------------------------------------------- */
 
-  var data = window.ASCII_PLANT;
+  // Which bake this window wants, by the global it assigns. The loader above
+  // the script picked one of these at parse time; PHONE's change listener at
+  // the foot of this script fetches the other when a window crosses over.
+  var PHONE = window.matchMedia ? matchMedia("(max-width: 600px)") : { matches: false };
+  var FILES = { ASCII_PLANT: "plant-frames.js", ASCII_PLANT_PHONE: "plant-frames-phone.js" };
+  function wanted() { return PHONE.matches ? "ASCII_PLANT_PHONE" : "ASCII_PLANT"; }
+  var data = window[wanted()] || window.ASCII_PLANT || window.ASCII_PLANT_PHONE;
   var stack = document.getElementById("stack");
   var pres = BANDS.map(function (b, i) {
     var el = document.createElement("pre");
@@ -787,15 +800,28 @@
   // The payload is a high-resolution MASTER. The grid actually drawn is derived
   // from the vine's size and CHAR_SIZE, and the master is resampled into it, so
   // a smaller vine means FEWER characters rather than smaller ones.
-  var mCols = data.cols, mRows = data.rows, cells = mCols * mRows;
-  var ASPECT = mCols / mRows;
-  // The cell's height over its width, and the payload's to say: a master is
-  // baked against a cell shape (bake.py --cell), and ASPECT above is only the
-  // vine's true shape when the grid is drawn on that same cell. Square for the
-  // vine; a payload from before the field existed was baked at the old 1:2.
-  var CELL = data.cell || 2;
-  var deltas = data.deltas, total = deltas.length + 1;
-  var maxLevel = data.levels - 1;
+  //
+  // Everything below that describes the master is set here and nowhere else,
+  // because the master can change under a running page: a window dragged
+  // across the phone breakpoint swaps the whole vine for its zoomed bake.
+  var mCols, mRows, cells, ASPECT, CELL, deltas, total, maxLevel, FILL;
+  function usePayload(d) {
+    data = d;
+    mCols = d.cols; mRows = d.rows; cells = mCols * mRows;
+    ASPECT = mCols / mRows;
+    // How the bake asks to be placed (bake.py --fill): absent, the whole vine
+    // fitted to the window; "width", the phone's window onto the vine.
+    FILL = d.fill || "";
+    // The cell's height over its width, and the payload's to say: a master is
+    // baked against a cell shape (bake.py --cell), and ASPECT above is only the
+    // vine's true shape when the grid is drawn on that same cell. Square for the
+    // vine; a payload from before the field existed was baked at the old 1:2.
+    CELL = d.cell || 2;
+    deltas = d.deltas; total = deltas.length + 1;
+    maxLevel = d.levels - 1;
+    lut = new Array(d.levels);
+    band = new Uint8Array(d.levels);
+  }
 
   /* ---- decoder -------------------------------------------------------- */
 
@@ -810,9 +836,9 @@
   var TRAIL = / +(?=\n|$)/g;
   var painted = [];               // the string each layer is currently showing
   var blend = null;               // where a between-frames position is mixed
-  var lut = new Array(data.levels);
-  var band = new Uint8Array(data.levels);
+  var lut, band;                  // sized by usePayload(), filled by buildLut()
   var TAU = Math.PI * 2;
+  usePayload(data);
 
   function applyDelta(buf, s) {
     var p = 0, idx = 0, len = s.length;
@@ -829,9 +855,13 @@
   // in at GROW_FROM. So decode the clip once, up front, and keep all of it:
   // 192 frames x 40800 cells is 7.8 MB, after which showing any frame is a
   // subarray view. No copy, no re-decode, and backwards costs what forwards does.
+  //
+  // Kept on the payload it was decoded from, so a window that crosses the
+  // phone breakpoint and comes back finds its first vine already decoded.
   function buildCache() {
-    var work = new Uint8Array(cells), f;
     blend = new Float32Array(cells);
+    if (data.cache) { cache = data.cache; return; }
+    var work = new Uint8Array(cells), f;
     for (var j = 0; j < cells; j++) work[j] = V[data.key.charCodeAt(j)];
     cache = new Uint8Array(total * cells);
     cache.set(work, 0);
@@ -839,6 +869,7 @@
       applyDelta(work, deltas[f - 1]);
       cache.set(work, f * cells);
     }
+    data.cache = cache;
   }
 
   // A whole frame costs nothing -- it is a view straight into the cache. A
@@ -879,6 +910,7 @@
   // shape the bake grid was chosen against -- CELL, from the payload.
   var advanceRatio = 0.6;
   var gCols = 0, gRows = 0, layers = [], colW = null, rowW = null, tmp = null;
+  var mRowsUsed = 0;
 
   // Where the vine is burning, for the ash script at the foot of the file to
   // shed from. Every cell repaint() puts in the two brightest bands -- the lit
@@ -937,11 +969,16 @@
   // some outputs average 2 source rows and others 3, which on thin diagonal
   // structures -- and this subject is almost nothing but thin diagonal stems --
   // reads as stair-stepping.
-  function buildWeights(dst, src) {
+  //
+  // `span` is how many of the src cells the dst cells cover, from the first:
+  // all of them when the whole vine is on screen, and fewer when a zoomed vine
+  // runs off the window's edge and only the part still inside it is drawn.
+  function buildWeights(dst, src, span) {
     var start = new Int32Array(dst + 1), idx = [], w = [];
+    span = Math.min(span || src, src);
     for (var i = 0; i < dst; i++) {
       start[i] = idx.length;
-      var a = i * src / dst, b = (i + 1) * src / dst;
+      var a = i * span / dst, b = (i + 1) * span / dst;
       var hi = Math.min(Math.ceil(b), src), sum = 0;
       for (var j = Math.floor(a); j < hi; j++) {
         var overlap = Math.min(b, j + 1) - Math.max(a, j);
@@ -954,6 +991,7 @@
   }
 
   function buildGrid() {
+    if (FILL === "width") return fillGrid();
     var cellW = advanceRatio * CHAR_SIZE, cellH = CELL * cellW;
     // No 0.94 here, unlike a centred figure: the vine hangs from the top edge,
     // so the margin it wants above it is none at all. SCALE alone decides how
@@ -1010,13 +1048,51 @@
     var pitch = Math.max(2, Math.round(size * CELL * advanceRatio));
     if (gRows * pitch > availH) gRows = Math.max(8, Math.floor(availH / pitch));
     size = pitch / (CELL * advanceRatio);
+    finishGrid(pitch, size, mCols, mRows);
+  }
 
+  // The phone's vine: not the whole plant fitted into half a window, but a
+  // window onto the plant -- a strip of the footage from a little left of the
+  // vine to partway through it, starting partway down, with the vine coming in
+  // from the top edge and running off the right and bottom ones. Fitted, a
+  // phone drew the whole plant on the same 3px cells as a desktop in half the
+  // window's width, and a bead was a dot or two; here the beads are about
+  // twice that, and -- the bake is that strip of the footage at its own
+  // density, not the desktop master blown up -- have the detail to match.
+  //
+  // The strip is the bake's crop (bake.py --fill width, and README.md), so all
+  // the page has to do is lay its width across the window. The composition
+  // then holds on any phone: the same black on the left for the words, the
+  // same cut on the right, and a taller phone sees further down. Only the rows
+  // inside the window are drawn, so the overflow is the crop's and the grid
+  // never pays for a cell off screen. #stack is still exactly the grid, so the
+  // bee, the nav and the ash, which all read the vine off its box and its
+  // stamp, need to know nothing about any of this.
+  function fillGrid() {
+    // the pitch CHAR_SIZE asks for, whole-pixel for Safari's sake as above;
+    // the bake's width fills the window whatever the cell count comes to
+    var pitch = Math.max(2, Math.round(CHAR_SIZE * CELL * advanceRatio));
+    var cellW = pitch / CELL;
+    gCols = Math.max(6, Math.round(window.innerWidth / cellW));
+    // the master's whole height in this grid's rows, at the width it is drawn
+    var allRows = gCols * CELL / ASPECT;
+    gRows = Math.max(8, Math.min(Math.ceil(window.innerHeight / pitch), Math.floor(allRows)));
+    finishGrid(pitch, pitch / (CELL * advanceRatio), mCols, gRows * mRows / allRows);
+  }
+
+  // The half of building a grid that does not care how its size was decided:
+  // gCols x gRows cells, `pitch` px apart, drawn from the first spanC x spanR
+  // cells of the master.
+  function finishGrid(pitch, size, spanC, spanR) {
     stackRect = null;           // the grid decides the box; it has just changed
     painted.length = 0;         // ...so nothing on screen matches anything held
     layers = BANDS.map(function () { return new Array(gRows * (gCols + 1)); });
     embers = new Int32Array(gRows * gCols);
-    colW = buildWeights(gCols, mCols);
-    rowW = buildWeights(gRows, mRows);
+    colW = buildWeights(gCols, mCols, spanC);
+    rowW = buildWeights(gRows, mRows, spanR);
+    // the master rows those cells reach, which repaint()'s first pass need
+    // not look past -- all of them when the whole vine is drawn
+    mRowsUsed = Math.min(mRows, Math.ceil(spanR));
     tmp = new Float32Array(mRows * gCols);
 
     // The box, written down rather than left to the text. `contain: size` in
@@ -1080,7 +1156,7 @@
   function repaint() {
     var y, j, k, e, s, L, NL = layers.length;
     nEmbers = 0;
-    for (y = 0; y < mRows; y++) {
+    for (y = 0; y < mRowsUsed; y++) {
       var off = y * mCols, to = y * gCols;
       for (j = 0; j < gCols; j++) {
         s = 0;
@@ -1268,6 +1344,7 @@
     t0 = 0; hiddenAt = 0; shown = -1; lastPaint = -1e9;
   });
 
+  var started = false;
   function start() {
     measure();
     buildLut();
@@ -1276,8 +1353,45 @@
     showAt(GROW_FROM);
     repaint();
     stack.classList.add("ready");
+    started = true;
     requestAnimationFrame(tick);
+    // a window that crossed the breakpoint while the font was loading
+    swapPayload();
   }
+
+  // A window that crosses the phone breakpoint -- a phone turned on its side,
+  // a desktop window dragged narrow -- wants the other bake. The loader only
+  // fetched one, so fetch the other the first time it is asked for and swap to
+  // it when it lands, asking the question again then rather than trusting the
+  // answer from before the download. Until it lands the vine it already has
+  // carries on, laid out by its own rule. Same source, same fps, same frame
+  // count, so the clock and every frame number above carry straight across.
+  var fetching = {};
+  function swapPayload() {
+    var name = wanted(), d = window[name];
+    if (!started) return;
+    if (!d) {
+      if (fetching[name]) return;
+      fetching[name] = true;
+      var s = document.createElement("script");
+      s.src = FILES[name];
+      s.onload = swapPayload;
+      s.onerror = function () { console.warn("plant: could not load " + FILES[name]); };
+      document.head.appendChild(s);
+      return;
+    }
+    if (d === data) return;
+    if (d.deltas.length + 1 !== total)
+      console.warn("plant: " + FILES[name] + " has a different frame count -- re-bake both");
+    usePayload(d);
+    buildLut();
+    buildGrid();
+    buildCache();
+    showAt(shown >= 0 ? shown : GROW_FROM);
+    repaint();
+  }
+  if (PHONE.addEventListener) PHONE.addEventListener("change", swapPayload);
+  else if (PHONE.addListener) PHONE.addListener(swapPayload);
 
   // fonts.ready on its own does not wait for MisketRamp: the layers are empty
   // until start() fills them, so nothing has asked for that face yet and ready
@@ -1709,13 +1823,13 @@
     var sb = stackBox();
     var mid = (sb.left + sb.right) / 2;
     var left = (r.left + r.right) / 2 < mid;
-    // ...except on a phone, where every word is on the left and the gap
-    // between them and the vine is the one strip the words need to read
-    // clearly. There the bee feeds from the FAR side, in the black between the
-    // outermost leaves and the window edge, and the words keep their gap. The
-    // same breakpoint as the phone layout in the stylesheet, asked fresh per
-    // leg so a window dragged across it is right by the next flight.
-    if (PHONE.matches) left = !left;
+    // On a phone every word is on the left, so that is the side it feeds
+    // from. It used to be the far one -- the gap between the words and the
+    // vine was the one strip they needed to read clearly, and there was black
+    // past the outermost leaves to eat in instead -- but the phone's vine is
+    // a window onto the plant now and runs off the right edge, so the far side
+    // is off screen. The clamp below keeps it off the label whose height it is
+    // borrowing.
     var y = (r.top + r.bottom) / 2 - LIFT;
     // INSIDE the label, in the gap it leaves between itself and the vine, nose
     // to the nearest strand at its own height. The sign comes from the rect, so
@@ -1727,6 +1841,10 @@
       edge = left ? s.left : s.right;
     }
     var x = left ? edge - halfW - EAT_GAP : edge + halfW + EAT_GAP;
+    // On a phone the word and the vine are on the SAME side of the bee, so a
+    // narrow gap would park it over the word's tail. Its own body clears the
+    // label first; the plant gets whatever is left.
+    if (PHONE.matches && left) x = Math.max(x, r.right + halfW + EAT_GAP);
     return {
       x: Math.max(halfW + 4, Math.min(window.innerWidth - halfW - 4, x)),
       y: Math.max(halfH + 4, Math.min(window.innerHeight - halfH - 4, y)),
@@ -2020,7 +2138,7 @@
     // The cap is a backstop on the whole opening, the nav's own included -- it
     // cannot be allowed to keep the bee off the page if it never marks itself.
     var gaze = document.getElementById("gaze");
-    var plantData = window.ASCII_PLANT;
+    var plantData = window.ASCII_PLANT || window.ASCII_PLANT_PHONE;   // whichever bake loaded; both share an fps
     var CAP = (plantData ? (150 / plantData.fps) * 1000 : 4000) + 1200;
     var waitedFrom = performance.now();
     // Bumped by a replay, so a wait already in flight from the last opening
@@ -2149,7 +2267,7 @@
   // taller than the plant in it -- and with no payload at all there is no ink to
   // pass anything. Either way the list has to be there when the growth is over,
   // so the clip's own length decides the last word, whatever the ink did.
-  var plant = window.ASCII_PLANT;
+  var plant = window.ASCII_PLANT || window.ASCII_PLANT_PHONE;   // whichever bake loaded
   var backstop = 0;
   function armBackstop() {
     clearTimeout(backstop);
