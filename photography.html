@@ -6,7 +6,7 @@
 <title>Photography — Emre Uğur</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100..800&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -278,7 +278,7 @@
        declarations, and ?debug can drive all of them from one place. */
     --gazepad:   clamp(8px, 1.1vw, 16px);
     --gazegap:   clamp(13px, 2.4vw, 38px);
-    --gazesize:  clamp(24px, 1.9vw, 31px);
+    --gazesize:  clamp(20px, 1.6vw, 28px);
     --gazetrack: .14em;
     padding: clamp(16px, 2.4vw, 30px)
              calc(clamp(16px, 2.4vw, 30px) + var(--gazepad))
@@ -311,7 +311,7 @@
        phone widths there is nothing to solve for and the size is only a
        judgement about how loud the bar should be. */
     font-size: var(--gazesize);
-    font-family: "VT323", monospace;
+    font-family: "JetBrains Mono", monospace;
     font-weight: 400;
     /* the bar is not a surface: only the six words take the pointer, and the
        world has to be draggable through every gap between them */
@@ -430,7 +430,7 @@
     inset: 0;
     pointer-events: none;
     z-index: 10;
-    font-family: "VT323", monospace;
+    font-family: "JetBrains Mono", monospace;
     font-weight: 400;
     font-size: 24px;
     letter-spacing: .14em;
@@ -615,7 +615,7 @@
   #full .meta {
     margin: 0;
     white-space: nowrap;
-    font-family: "VT323", monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 26px;
     letter-spacing: .14em;
     text-transform: uppercase;
@@ -636,7 +636,7 @@
     margin: -8px -2px;
     border: 0;
     background: none;
-    font-family: "VT323", monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 34px;
     line-height: 1;
     color: var(--ink-1);
@@ -651,7 +651,7 @@
     padding: clamp(16px, 2.4vw, 30px);
     border: 0;
     background: none;
-    font-family: "VT323", monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 40px;
     line-height: .8;
     color: var(--text);
@@ -709,7 +709,7 @@
          the letter-spacing written twice, and the underline overshoots the last
          letter if only one of them moves. */
       --gazegap: .8em;
-      --gazesize: clamp(15px, calc(6.2vw - 4.4px), 24px);
+      --gazesize: clamp(12px, calc(4.9vw - 4.5px), 22px);
       --gazetrack: .08em;
       padding: clamp(16px, 2.4vw, 30px) clamp(16px, 2.4vw, 30px)
                clamp(16px, 2.4vw, 30px) 58px;
@@ -1674,7 +1674,7 @@
     dbg.style.cssText =
       "position:fixed;right:14px;bottom:14px;z-index:90;background:#000;" +
       "border:1px solid var(--ink-0);padding:9px 11px 8px;color:var(--ink-2);" +
-      "font:20px/1.35 VT323,monospace;pointer-events:auto;width:250px";
+      "font:20px/1.35 JetBrains Mono,monospace;pointer-events:auto;width:250px";
     dbg.innerHTML =
       '<div style="color:var(--ink-1)">gutter at <b id="dbgnow" ' +
       'style="color:var(--accent);font-weight:400"></b></div>' +

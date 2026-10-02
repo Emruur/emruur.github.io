@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Zoom is locked, and the reason is that this page cannot be panned: it is
+     one fixed composition with overflow:hidden, so a pinch -- easily done by
+     accident, on a phone or a trackpad over DevTools' device frame -- left it
+     magnified from the top-left corner with no way to scroll to the rest: the
+     words 1.3x and running off the bottom, the vine cut off at the right
+     edge, CONTACT gone. The meta covers Chrome and Android; touch-action on
+     html (below) covers iOS Safari, which ignores user-scalable. -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Misket, in ASCII</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,6 +60,8 @@
     overflow: hidden;
     background: var(--bg);     /* the void: nothing behind the vine */
   }
+  /* no pinch-zoom -- see the viewport meta. Taps are untouched. */
+  html { touch-action: pan-x pan-y; }
 
   /* start, not center: the vine is attached at the top edge of its frame, and
      that edge is pinned to the top of the window so it grows DOWN into it */
@@ -149,6 +158,8 @@
        rather than a breakpoint, so neither jumps as the window is dragged. */
     --gap: clamp(-60px, 13.85vw - 121.5px, 80px);
     --ls: .14em;
+    /* the whole nav, shifted left of where the vine puts it */
+    --nudge: 24px;
     /* ~27px at 430 (was ~22.6), still reaching 48px by ~1370 so desktop is
        unchanged. A line rather than a breakpoint, like --gap above. */
     font-size: calc(clamp(24px, 2.23vw + 17.4px, 48px) * var(--ui-size, 1));
@@ -188,8 +199,8 @@
   /* Which side of the vine a word hangs on. A class and not the inline style
      it used to be, so the phone rule at the foot of the sheet can move a word
      across without !important; the height stays inline, one number per word. */
-  #gaze .w { right: calc(100% + var(--gap)); }
-  #gaze .e { left: calc(100% + var(--gap)); }
+  #gaze .w { right: calc(100% + var(--gap) + var(--nudge)); }
+  #gaze .e { left: calc(100% + var(--gap) - var(--nudge)); }
   /* ...and how far down it. Both heights live on the word itself, as custom
      properties, so each word's two placements are written side by side; the
      phone rule below only chooses which one is in force. */
@@ -500,6 +511,22 @@
     transition: opacity .5s ease;
   }
   #bee-stack.ready { opacity: 1; }
+
+  /* The ash the grown vine sheds -- see the last script. Over the vine's
+     layers (2) and under the nav and corners (10), so a speck drifting across
+     a word goes behind it. The whole window and not the stack's box, because
+     the point of the ash is that it leaves the vine and then the screen. */
+  #ash {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .6s ease;
+  }
+  #stack.ready ~ #ash { opacity: 1; }
   /* same disjoint-layer trick as the vine's colour bands */
   #bee-stack pre + pre { position: absolute; top: 0; left: 0; }
 
@@ -538,7 +565,7 @@
     /* --top-phone marks each word's MIDDLE, not its top edge (hence the
        translate), so four heights spaced evenly about 50% put the group's
        centre on the window's: 27.5 / 42.5 / 57.5 / 72.5, 15% apart. */
-    #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px); top: var(--top-phone); transform: translateY(-50%); }
+    #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px - 14px); top: var(--top-phone); transform: translateY(-50%); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
@@ -594,6 +621,9 @@
     <button type="button" class="e" style="--top: 80%; --top-phone: 57.5%;">WebDesign</button>
   </nav>
 </div>
+
+<!-- after #stack and a sibling of it, so `#stack.ready ~ #ash` can fade it in -->
+<canvas id="ash" aria-hidden="true"></canvas>
 
 <!-- The frame. Who the page is, what it is, and the two ways out of it, one
      to a window corner each. Deliberately not part of #gaze: the nav is the
@@ -850,6 +880,23 @@
   var advanceRatio = 0.6;
   var gCols = 0, gRows = 0, layers = [], colW = null, rowW = null, tmp = null;
 
+  // Where the vine is burning, for the ash script at the foot of the file to
+  // shed from. Every cell repaint() puts in the two brightest bands -- the lit
+  // beads and their cores -- written as (row * gCols + col) * 2, plus one for a
+  // core. Collected inside the loop that already decides each cell's band, so
+  // it costs one compare a cell and no pass of its own. Published the same way
+  // BEE_BITE is read, in the other direction: one plain value, nothing read
+  // back, and re-validated by whoever reads it. WHEN to shed is not the vine's
+  // to say -- the ash waits on the nav, the way the bee does.
+  //
+  // The bite goes along with it, in the same grid cells repaint() just used to
+  // light the patch, so the ash can burn hardest exactly where the vine does.
+  var embers = null, nEmbers = 0;
+  function publishEmbers() {
+    window.VINE_EMBERS = { cells: embers, n: nEmbers, cols: gCols, rows: gRows,
+      bite: bite && { col: bite.col, row: bite.row, rc: bite.rc, rr: bite.rr, amp: bite.amp } };
+  }
+
   // #stack's box, measured lazily and kept. It is fixed once the grid exists --
   // every layer is gRows full lines whether or not there is any vine in them, so
   // the box does not grow as the plant does -- and only buildGrid() can change
@@ -967,6 +1014,7 @@
     stackRect = null;           // the grid decides the box; it has just changed
     painted.length = 0;         // ...so nothing on screen matches anything held
     layers = BANDS.map(function () { return new Array(gRows * (gCols + 1)); });
+    embers = new Int32Array(gRows * gCols);
     colW = buildWeights(gCols, mCols);
     rowW = buildWeights(gRows, mRows);
     tmp = new Float32Array(mRows * gCols);
@@ -1031,6 +1079,7 @@
   // reassembles the one grid -- in three colours instead of one.
   function repaint() {
     var y, j, k, e, s, L, NL = layers.length;
+    nEmbers = 0;
     for (y = 0; y < mRows; y++) {
       var off = y * mCols, to = y * gCols;
       for (j = 0; j < gCols; j++) {
@@ -1080,9 +1129,10 @@
         lv = lv < 0 ? 0 : lv > maxLevel ? maxLevel : lv;
         // reversing the column is the horizontal flip: mirroring the element
         // with scaleX(-1) would mirror the glyphs too and leave them backwards
-        var at = base + (FLIP ? gCols - 1 - j : j), b = band[lv];
+        var col = FLIP ? gCols - 1 - j : j, at = base + col, b = band[lv];
         for (L = 0; L < NL; L++) layers[L][at] = " ";
         layers[b][at] = lut[lv];
+        if (b >= NL - 2) embers[nEmbers++] = (i * gCols + col) * 2 + (b === NL - 1 ? 1 : 0);
       }
       // no trailing newline on the last row -- it would add an extra line box
       var nl = (i === gRows - 1) ? "" : "\n";
@@ -1110,6 +1160,7 @@
       var text = layers[L].join("").replace(TRAIL, "");
       if (text !== painted[L]) { painted[L] = text; pres[L].textContent = text; }
     }
+    publishEmbers();
   }
 
   /* ---- playback -------------------------------------------------------- */
@@ -2206,6 +2257,359 @@
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+})();
+</script>
+
+<script>
+/* ---- ash ----------------------------------------------------------------
+   Once the nav has written itself in -- the same `grown` mark on #gaze the
+   bee waits for, which lands while the vine is still finishing, rather than
+   at the end of the clip -- the lit beads shed ash: one of the ramp's own small
+   glyphs, off the grid now, pushed outward away from the vine. It cools as it
+   goes, white to grey, and thins out into the dark about halfway to the edge
+   of the window. Where the bee is eating, the vine sheds faster.
+
+   Its own IIFE with its own clock. All it knows of the nav is that class, and
+   all it knows of the vine is VINE_EMBERS,
+   the one value the vine publishes after each repaint, and that is re-checked
+   here every time: a missing or malformed one means no new ash, never an
+   error. Nothing here is ever read back by anything else. */
+(function () {
+  "use strict";
+
+  /* ---- everything adjustable, in one place ----------------------------- */
+
+  // Sparse on purpose: an accent off the beads, not a second subject. And
+  // STEADY: a fixed rate, spaced evenly by the debt counter in tick(), rather
+  // than one that eases off as the air fills -- that version came in a rush
+  // and then thinned to a trickle. Each speck fades out partway to the edge
+  // (FADE), so the count holds at RATE times a lifetime of ten-odd seconds.
+  var RATE      = 3.5;            // specks a second, always
+  var CAP       = 140;            // hard ceiling, never reached in practice
+  // ...and more where the bee is eating. The bite lifts the vine there into
+  // its brightest bands already; this is the same patch burning faster, shed
+  // from the lit cells inside it, so the ash comes off the bee's mouth and
+  // nowhere it has not actually lit. Scaled by the bite's own swell, so it
+  // rises and dies away with the meal rather than switching on and off.
+  var BITE_RATE = 4;              // extra specks a second per unit of bite amp (~1.45 at full)
+  var RAMP_IN   = 1.5;            // seconds for the shedding to come up once it starts
+  var CORE_BIAS = 3;              // a core is this many times likelier to shed than a bead
+  // A drift, not a throw. The push against the drag gives each speck a top
+  // speed of PUSH / DRAG -- 20 to 53 px/s -- which it eases up to over a few
+  // seconds and then holds all the way out.
+  var SPEED     = [8, 18];        // px/s outward at release
+  var PUSH      = [3, 8];         // px/s^2 outward thereafter: it speeds up as it goes
+  // Bigger than the cell. At the vine's own size a speck is a two-pixel dot,
+  // which is a bead when it sits among fifty others and nothing at all on its
+  // own in the black.
+  var GLYPH     = 2.2;            // speck size, in the vine's font sizes
+  var COLD_HALO = 0.35;           // how much glow a fully cold speck keeps
+  // The flicker, and the thing that makes it ash that is BURNING rather than
+  // dust that is lit. Two sines at unrelated rates per speck, so no two pulse
+  // together and none pulses in a rhythm; squared, so a speck idles dim and
+  // flares briefly rather than breathing evenly. On a flare the halo swells
+  // and the speck climbs one step back up HEAT -- it catches again for a
+  // moment -- which is what a gentle alpha wobble could never say.
+  // Tuned back from 0.85 / 0.7 / 0.7, where the specks all but went out
+  // between flares and the field read as strobing rather than smouldering.
+  var FLICKER   = 0.5;            // how far down a speck dims between flares, 0..1
+  var FLARE_R   = 0.35;           // extra halo radius at the top of a flare, as a fraction
+  var REKINDLE  = 0.8;            // pulse above which a speck shows one step hotter
+  var HALO_MIN  = 0.45;           // the halo's floor between flares, as a fraction of its peak
+  var LIFT      = 2;              // px/s upward at release -- ash is warm
+  var WOBBLE    = 8;              // px/s^2 of curl, so nothing travels in a line
+  var DRAG      = 0.15;           // per second
+  var COOL      = [2, 4];         // seconds from release to fully cold
+  // Where a speck is gone, as a fraction of the way from where it left the
+  // vine to the edge it is heading for. It starts fading at FADE_FROM of that
+  // and is out at the end, so ash thins into the dark instead of being cut off
+  // by the frame. Measured per speck against ITS edge, so a bead near the
+  // window's side and one near the vine's axis both fade about halfway out.
+  var FADE      = [0.4, 0.65];    // fully gone by here
+  var FADE_FROM = 0.4;            // ...having started fading this far into that
+  var MAX_LIFE  = 90;             // seconds; only a speck that never leaves sees it
+  var MAX_HZ    = 60;             // this machine's Chrome asks for 120
+
+  // Hottest to coldest, a glyph and an ink each. The same four steps down the
+  // same ramp the vine is drawn in, so a speck leaving a bead reads as a piece
+  // of it, and the inks are the vine's own bands -- no colour is named here.
+  // The bottom of the ramp is left out: `.` and `·` are a pixel or two at any
+  // size this is drawn at, so a speck cooling into them simply vanished
+  // however large GLYPH was made. It cools in colour more than in shape.
+  var HEAT = [
+    { above: 0.80, glyph: "•", ink: "--ink-4" },
+    { above: 0.60, glyph: "•", ink: "--ink-3" },
+    { above: 0.35, glyph: "∙", ink: "--ink-3" },
+    { above: -1,   glyph: "∙", ink: "--ink-2" }
+  ];
+  // Cold stops at --ink-2, not --ink-1: the vine's ink-1 is a stem, which is
+  // read against the beads around it, and a lone speck that dim is invisible.
+
+  /* ---------------------------------------------------------------------- */
+
+  var canvas = document.getElementById("ash");
+  var stack = document.getElementById("stack");
+  var gaze = document.getElementById("gaze");
+  if (!canvas || !canvas.getContext || !gaze) return;
+  // The ash is pure motion, so with motion turned down there is none of it.
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var ctx = canvas.getContext("2d");
+
+  // Flat pools, one slot per speck and nothing allocated per frame.
+  var x = new Float32Array(CAP), y = new Float32Array(CAP);
+  var vx = new Float32Array(CAP), vy = new Float32Array(CAP);
+  var ax = new Float32Array(CAP), age = new Float32Array(CAP);
+  var heat0 = new Float32Array(CAP), cool = new Float32Array(CAP);
+  var phase = new Float32Array(CAP), flick = new Float32Array(CAP);
+  var x0 = new Float32Array(CAP), gone = new Float32Array(CAP);
+  var alive = 0;
+
+  var W = 0, H = 0, dpr = 1, glyphPx = 4, inks = [], halo = null, haloR = 0;
+  var stackRect = null;
+
+  function rand(r) { return r[0] + Math.random() * (r[1] - r[0]); }
+
+  // The glow is a small sprite drawn under each speck, and NOT a drop-shadow
+  // filter on the canvas the way the vine's bands do it. A filter is cheap for
+  // the vine because its layers change thirty times a second at most and are
+  // left alone in between; this canvas is the whole window and changes every
+  // frame, so a filter on it would be the compositor re-blurring a window-sized
+  // layer 60 times a second -- the exact cost this page has spent most of its
+  // tuning getting rid of. A hundred 20px sprites is next to nothing.
+  function buildHalo() {
+    var probe = document.createElement("canvas").getContext("2d");
+    probe.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bloom").trim() || "#ccc";
+    var hex = probe.fillStyle, rgb = "204,204,204";   // canvas hands back #rrggbb
+    if (/^#[0-9a-f]{6}$/i.test(hex))
+      rgb = [1, 3, 5].map(function (i) { return parseInt(hex.substr(i, 2), 16); }).join(",");
+    haloR = Math.max(5, glyphPx * GLYPH * 1.4);
+    var size = Math.ceil(haloR * 2 * dpr);
+    halo = document.createElement("canvas");
+    halo.width = halo.height = size;
+    var h = halo.getContext("2d"), c = size / 2;
+    var g = h.createRadialGradient(c, c, 0, c, c, c);
+    g.addColorStop(0, "rgba(" + rgb + ",0.45)");
+    g.addColorStop(0.35, "rgba(" + rgb + ",0.14)");
+    g.addColorStop(1, "rgba(" + rgb + ",0)");
+    h.fillStyle = g;
+    h.fillRect(0, 0, size, size);
+  }
+
+  // Sized and styled off the vine itself, so this runs after the vine's own
+  // resize handler (registered first, so it is called first) has rebuilt the
+  // grid: the specks are the cell's size because they are its glyphs.
+  function layout() {
+    dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    var pre = stack && stack.querySelector("pre"), cs = pre && getComputedStyle(pre);
+    glyphPx = (cs && parseFloat(cs.fontSize)) || 4;
+    var root = getComputedStyle(document.documentElement);
+    inks = HEAT.map(function (h) { return root.getPropertyValue(h.ink).trim() || "#888"; });
+    // resizing the backing store resets the context, font and all
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = glyphPx * GLYPH + "px " + ((cs && cs.fontFamily) || "monospace");
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    buildHalo();
+    stackRect = null;
+    dirty = true;
+  }
+
+  // Cached for the same reason the vine caches it: the vine rewrites its text
+  // thirty times a second, so a rect read at spawn time would force a layout
+  // each time for a box that only ever changes on resize.
+  function stackBox() {
+    if (!stackRect || !stackRect.height) stackRect = stack.getBoundingClientRect();
+    return stackRect;
+  }
+
+  // The vine's word, re-checked: null unless the nav is done and every field
+  // is usable.
+  //
+  // Also where the ash's AXIS comes from: the median column of the lit cells,
+  // not the middle of the vine's box. The beads do not sit centred in that box
+  // -- most of the lit ones are left of its middle -- so splitting on the box
+  // sent most of the ash left. The median puts half the beads either side by
+  // definition, whatever shape the vine is in this frame. A count per column
+  // and one walk up it, redone only when the vine has published a new frame.
+  //
+  // The same pass picks out the lit cells inside the bee's bite, if there is
+  // one, into a list of their own for the extra shedding to draw from.
+  var seen = null, view = null, hist = null, bitten = null;
+  function embers() {
+    var e = window.VINE_EMBERS;
+    if (!gaze.classList.contains("grown") || !e || !e.cells) return null;
+    if (e === seen) return view;
+    seen = e; view = null;
+    var n = e.n | 0, cols = e.cols | 0, rows = e.rows | 0;
+    if (n <= 0 || cols <= 0 || rows <= 0 || n > e.cells.length) return null;
+    if (!hist || hist.length !== cols) hist = new Int32Array(cols);
+    else hist.fill(0);
+    if (!bitten || bitten.length < e.cells.length) bitten = new Int32Array(e.cells.length);
+    var b = e.bite, nb = 0, amp = 0;
+    var bc = b && +b.col, br = b && +b.row, rc = b && +b.rc, rr = b && +b.rr;
+    if (b && isFinite(bc) && isFinite(br) && rc > 0 && rr > 0 && +b.amp > 0) amp = +b.amp;
+    for (var i = 0; i < n; i++) {
+      var idx = e.cells[i] >> 1, row = (idx / cols) | 0, col = idx - row * cols;
+      hist[col]++;
+      if (amp) {
+        var dc = (col + 0.5 - bc) / rc, dr = (row + 0.5 - br) / rr;
+        if (dc * dc + dr * dr < 1) bitten[nb++] = e.cells[i];
+      }
+    }
+    var axis = 0, run = 0;
+    while (axis < cols - 1 && (run += hist[axis]) < n / 2) axis++;
+    view = { cells: e.cells, n: n, cols: cols, rows: rows, axis: axis + 0.5,
+             bitten: bitten, nb: nb, amp: nb ? amp : 0 };
+    return view;
+  }
+
+  function spawn(e, bit) {
+    if (alive >= CAP) return;
+    // Rejection sampling for the core bias: any lit cell, kept every time if
+    // it is a core and one time in CORE_BIAS if it is not. Off the bite, from
+    // the cells inside it.
+    var list = bit ? e.bitten : e.cells, len = bit ? e.nb : e.n;
+    if (!len) return;
+    var code = -1;
+    for (var tries = 0; tries < 8; tries++) {
+      var c = list[(Math.random() * len) | 0];
+      if ((c & 1) || Math.random() * CORE_BIAS < 1) { code = c; break; }
+    }
+    if (code < 0) return;
+    var idx = code >> 1, row = (idx / e.cols) | 0, col = idx - row * e.cols;
+    if (row >= e.rows) return;
+    var r = stackBox();
+    if (!r.width || !r.height) return;
+    var cw = r.width / e.cols, ch = r.height / e.rows;
+    var px = r.left + (col + Math.random()) * cw, py = r.top + (row + Math.random()) * ch;
+    // Outward is away from the axis (see embers()). A bead on it has no side,
+    // so it picks one.
+    var mid = r.left + e.axis * cw, dir = px > mid ? 1 : -1;
+    if (Math.abs(px - mid) < cw * 2) dir = Math.random() < 0.5 ? -1 : 1;
+    var k = alive++;
+    x[k] = px; y[k] = py;
+    x0[k] = px;
+    gone[k] = (dir > 0 ? W - px : px) * rand(FADE);
+    vx[k] = dir * rand(SPEED);
+    vy[k] = (Math.random() - 0.5) * 12 - LIFT;
+    ax[k] = dir * rand(PUSH);
+    age[k] = 0;
+    heat0[k] = (code & 1) ? 1 : 0.68 + Math.random() * 0.1;
+    cool[k] = rand(COOL);
+    phase[k] = Math.random() * 6.283;
+    flick[k] = 3 + Math.random() * 5;   // rad/s; the second rate is 2.3x this
+  }
+
+  // Swap the last live speck into the dead one's slot: order is meaningless,
+  // so a death is O(1) and the live ones stay packed at the front.
+  function kill(k) {
+    var l = --alive;
+    x[k] = x[l]; y[k] = y[l]; vx[k] = vx[l]; vy[k] = vy[l]; ax[k] = ax[l];
+    age[k] = age[l]; heat0[k] = heat0[l]; cool[k] = cool[l];
+    phase[k] = phase[l]; flick[k] = flick[l]; x0[k] = x0[l]; gone[k] = gone[l];
+  }
+
+  // How far a speck has got toward fading out: 0 until FADE_FROM of the way,
+  // 1 at gone[]. Distance along its own direction of travel, which ax[] holds
+  // the sign of; a wobble back toward the vine just counts as no progress.
+  function fadeOf(k) {
+    var d = (x[k] - x0[k]) * (ax[k] > 0 ? 1 : -1), g = gone[k];
+    if (!(g > 0)) return 1;
+    var u = (d / g - FADE_FROM) / (1 - FADE_FROM);
+    return u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
+  }
+
+  var last = 0, clock = 0, shedFor = 0, debt = 0, biteDebt = 0, dirty = false, running = false;
+
+  // The loop only exists while there is ash to move or a vine to shed it.
+  // Once the last speck is off the screen and the vine is not shedding --
+  // before the nav is in, and after a replay until it is in again -- tick()
+  // stops asking for frames altogether, and the nav's `grown` mark wakes it.
+  function wake() {
+    if (running) return;
+    if (!laid) { layout(); laid = true; }
+    running = true; last = 0;
+    requestAnimationFrame(tick);
+  }
+
+  function tick(now) {
+    if (last && now - last < 1000 / MAX_HZ - 1) return void requestAnimationFrame(tick);
+    // clamped, so a tab brought back after a minute does not fling the ash
+    var dt = last ? Math.min((now - last) / 1000, 0.05) : 0;
+    last = now;
+    clock += dt;
+
+    var e = embers();
+    shedFor = e ? shedFor + dt : 0;
+    if (e) {
+      var ramp = Math.min(1, shedFor / RAMP_IN);
+      debt += RATE * ramp * dt;
+      while (debt >= 1) { spawn(e, false); debt -= 1; }
+      biteDebt += BITE_RATE * e.amp * ramp * dt;
+      while (biteDebt >= 1) { spawn(e, true); biteDebt -= 1; }
+    } else debt = biteDebt = 0;
+
+    if (!alive) {
+      // nothing in the air: clear once, and if nothing is coming either, stop
+      if (dirty) { ctx.clearRect(0, 0, W, H); dirty = false; }
+      if (e) requestAnimationFrame(tick); else running = false;
+      return;
+    }
+    requestAnimationFrame(tick);
+
+    var drag = 1 - DRAG * dt, k, edge = haloR * (1 + FLARE_R);
+    for (k = alive - 1; k >= 0; k--) {
+      var p = phase[k];
+      vx[k] = (vx[k] + (ax[k] + WOBBLE * Math.sin(y[k] * 0.013 + clock * 0.7 + p)) * dt) * drag;
+      vy[k] = (vy[k] + WOBBLE * Math.cos(x[k] * 0.011 + clock * 0.5 + p * 1.3) * dt) * drag;
+      x[k] += vx[k] * dt;
+      y[k] += vy[k] * dt;
+      age[k] += dt;
+      // Gone the moment nothing of it can be seen -- faded out, or its halo
+      // clear of the edge -- and not moved or drawn another frame after that.
+      if (fadeOf(k) >= 1 || x[k] < -edge || x[k] > W + edge ||
+          y[k] < -edge || y[k] > H + edge || age[k] > MAX_LIFE) kill(k);
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    dirty = true;
+    for (k = 0; k < alive; k++) {
+      var h = Math.max(0, heat0[k] * (1 - age[k] / cool[k])), s = 0;
+      while (h <= HEAT[s].above) s++;
+      var t = age[k] * flick[k] + phase[k];
+      var n = 0.5 + 0.275 * Math.sin(t) + 0.225 * Math.sin(t * 2.3 + phase[k] * 2.7);
+      var pulse = n * n;                                 // 0..1, mostly low
+      if (pulse > REKINDLE && s > 0) s--;
+      var fade = 1 - fadeOf(k);
+      var a = (1 - FLICKER * (1 - pulse)) * fade;
+      // the halo fades with the heat, down to a little, and swells with the
+      // flare: between flares a cold speck is barely there, on one it is lit
+      var r = haloR * (1 + FLARE_R * pulse);
+      ctx.globalAlpha = Math.min(1, fade * (HALO_MIN + (1 - HALO_MIN) * pulse) *
+        (Math.max(COLD_HALO, Math.min(1, h * 1.4)) + 0.5 * pulse));
+      ctx.drawImage(halo, x[k] - r, y[k] - r, r * 2, r * 2);
+      ctx.globalAlpha = a;
+      ctx.fillStyle = inks[s];
+      ctx.fillText(HEAT[s].glyph, x[k], y[k]);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  window.addEventListener("resize", function () { if (laid) layout(); });
+
+  // Nothing runs until the nav is marked done -- by which time the vine has
+  // long since sized its grid, which is what layout() reads -- and nothing
+  // runs again after the ash is gone until it is marked again. An observer
+  // and not a poll, so the wait costs nothing; the dropdown watches the same
+  // class the same way.
+  var laid = false;
+  new MutationObserver(function () {
+    if (gaze.classList.contains("grown")) wake();
+  }).observe(gaze, { attributes: true, attributeFilter: ["class"] });
+  if (gaze.classList.contains("grown")) wake();
 })();
 </script>
 
