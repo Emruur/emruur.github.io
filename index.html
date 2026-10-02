@@ -157,12 +157,12 @@
        leaves reads better than one shrunk to fit beside them. One line each
        rather than a breakpoint, so neither jumps as the window is dragged. */
     --gap: clamp(-60px, 13.85vw - 121.5px, 80px);
-    --ls: .14em;
+    --ls: -.08em;
     /* the whole nav, shifted left of where the vine puts it */
     --nudge: 24px;
     /* ~27px at 430 (was ~22.6), still reaching 48px by ~1370 so desktop is
        unchanged. A line rather than a breakpoint, like --gap above. */
-    font-size: calc(clamp(24px, 2.23vw + 17.4px, 48px) * var(--ui-size, 1));
+    font-size: calc(clamp(24px, 2.23vw + 17.4px, 48px) * 1.4 * var(--ui-size, 1));
     font-family: var(--ui-font, "JetBrains Mono"), monospace;
     font-weight: var(--ui-weight, 400);
     z-index: 10;
@@ -276,6 +276,32 @@
   @media (hover: hover) {
     #gaze button:hover::after { transform: scaleX(1); transform-origin: right center; }
   }
+  /* No underline on the nav labels. The word is painted by a two-colour
+     gradient clipped to its letters (red on the left, white on the right, a
+     soft join between) and the gradient is slid across, so the red floods in
+     from the left as ink in the glyphs themselves. There is no second copy of
+     the word laid on top, which is what left a white fringe round the red. */
+  #gaze button::after { display: none; }
+  #gaze button {
+    color: transparent;
+    background-image: linear-gradient(90deg, var(--accent) 40%, var(--text) 60%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: none;
+    transition: background-position .75s cubic-bezier(.45, .05, .25, 1), opacity .7s ease;
+  }
+  #gaze button[aria-current="true"],
+  #gaze .drop.open > button { color: transparent; background-position: 0 0; transition: background-position .75s cubic-bezier(.45, .05, .25, 1), opacity .7s ease; }
+  @media (hover: hover) {
+    #gaze button:hover { color: transparent; background-position: 0 0; transition: background-position .75s cubic-bezier(.45, .05, .25, 1), opacity .7s ease; }
+  }
+  #gaze .caret { color: var(--text); }
+  #gaze button[aria-current="true"] .caret,
+  #gaze .drop.open > button .caret { color: var(--accent); }
+  @media (hover: hover) { #gaze button:hover .caret { color: var(--accent); } }
 
   /* ---- the one branching word ------------------------------------------
      The wrapper is the button's old inline placement and nothing else, so the
@@ -552,7 +578,7 @@
        the words started 39px in; aligned to the corners at 16px, and with the
        phone's vine framed so its leaves stand further right, there is room
        for the words to be a step larger. */
-    #gaze { --ls: .08em; font-size: calc(min(29px, 6.7vw) * var(--ui-size, 1)); }
+    #gaze { --ls: -.08em; font-size: calc(min(29px, 6.7vw) * 1.4 * var(--ui-size, 1)); }
     /* Placed against the WINDOW, not the vine. On desktop the words hang off
        the vine's sides and have to move with it; here they are a column of
        their own, so #gaze lets go of #stack and covers the viewport instead,
@@ -599,8 +625,8 @@
   <nav id="gaze" aria-label="Sections">
     <!-- no data-href while about.html is unfinished: the word stays, the
          click does nothing, the same as WebDesign -->
-    <button type="button" class="w" style="--top: 20%; --top-phone: 26.375%;">About</button>
-    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 73.625%;">Photography</button>
+    <button type="button" class="w" style="--top: 20%; --top-phone: 57.875%;" data-t="About">About</button>
+    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 26.375%;" data-t="Photography">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
          was: the bee aims at these rects every frame and the reveal script
@@ -614,14 +640,14 @@
          bee script), so these can sit in any order and each word can carry a
          different height on a phone (--top-phone) without the bee zigzagging.
          Kept in desktop order anyway, so the source reads like the page. -->
-    <div class="drop w" style="--top: 60%; --top-phone: 57.875%;">
-      <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
+    <div class="drop w" style="--top: 60%; --top-phone: 73.625%;">
+      <button type="button" aria-expanded="false" aria-controls="projects-menu" data-t="Projects">Projects<i class="caret" aria-hidden="true"></i></button>
       <div class="menu" id="projects-menu">
         <a class="item" href="https://theoriginlibrary.com" target="_blank" rel="noopener">Origin Library</a>
         <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
       </div>
     </div>
-    <button type="button" class="e" style="--top: 80%; --top-phone: 42.125%;">WebDesign</button>
+    <button type="button" class="e" style="--top: 80%; --top-phone: 42.125%;" data-t="WebDesign">WebDesign</button>
   </nav>
 </div>
 
@@ -2754,7 +2780,6 @@
       debt += RATE * ramp * dt;
       while (debt >= 1) { spawn(e, false); debt -= 1; }
       biteDebt += BITE_RATE * e.amp * ramp * dt;
-      while (biteDebt >= 1) { spawn(e, true); biteDebt -= 1; }
     } else { debt = biteDebt = 0; litAt = -1; }
 
     if (!alive && !e) {

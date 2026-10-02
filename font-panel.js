@@ -28,6 +28,13 @@
       "Fragment Mono", "Geist Mono", "Red Hat Mono", "Martian Mono",
       "Azeret Mono", "Spline Sans Mono", "Chivo Mono", "Sometype Mono",
       "IBM Plex Mono", "Space Mono"]],
+    ["More monos", [
+      "Roboto Mono", "Source Code Pro", "Fira Code", "Fira Mono", "Inconsolata",
+      "Ubuntu Mono", "Overpass Mono", "Anonymous Pro", "Cutive Mono", "Nova Mono",
+      "Share Tech Mono", "Major Mono Display", "B612 Mono", "Oxygen Mono",
+      "PT Mono", "Syne Mono", "Victor Mono", "Sono",
+      "Kode Mono", "Reddit Mono", "Lekton", "M PLUS 1 Code", "Noto Sans Mono",
+      "Cousine", "Nanum Gothic Coding"]],
     ["Between the two", ["Xanh Mono", "Courier Prime"]]
   ];
   var FONTS = [].concat.apply([], GROUPS.map(function (g) { return g[1]; }));
@@ -188,6 +195,37 @@
   $(".reset").addEventListener("click", function () {
     state.size = 1; size.value = 1; state.weight = 400;
     any.value = ""; pick.value = "JetBrains Mono"; choose("JetBrains Mono");
+  });
+
+  var cursor = -1;
+  pick.addEventListener("change", function () { cursor = FONTS.indexOf(pick.value); });
+  // < and > (or , and .) step through the fonts, up and down arrows change
+  // the size. They work whether the panel is open or shut, and while a select,
+  // slider or button in it has focus; only a text field keeps its own keys.
+  document.addEventListener("keydown", function (e) {
+    var t = e.target, tag = t && t.tagName;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (tag === "TEXTAREA" || (t && t.isContentEditable) ||
+        (tag === "INPUT" && t.type !== "range" && t.type !== "checkbox")) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      state.size = Math.min(2, Math.max(0.5, Math.round((state.size + (e.key === "ArrowUp" ? 0.05 : -0.05)) * 100) / 100));
+      size.value = state.size;
+      apply();
+      return;
+    }
+    var dir = (e.key === "<" || e.key === ",") ? -1 : (e.key === ">" || e.key === ".") ? 1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    // step from where the last press LANDED, not from the font in force: a
+    // family that fails to load never becomes state.font, and stepping from
+    // that would hit the same dead one on every press and go nowhere.
+    var i = cursor >= 0 ? cursor : FONTS.indexOf(state.font);
+    i = i < 0 ? (dir > 0 ? 0 : FONTS.length - 1) : (i + dir + FONTS.length) % FONTS.length;
+    cursor = i;
+    any.value = "";
+    pick.value = FONTS[i];
+    choose(FONTS[i]);
   });
 
   weight.value = state.weight;
