@@ -677,6 +677,12 @@
   // window, so on a display tall enough to exhaust the master the cell grows
   // past this and the stems thicken. That is the trade a 400-row master makes.
   var CHAR_SIZE = 5;              // CSS pixels per character, before fitting
+  // ...and on a phone, where the vine is drawn the full width of the window
+  // (fillGrid), a 4px cell rather than 3. At 3 that was twice the cells the
+  // fitted phone vine had, and repaint() went from 60 to 230ms a second on a
+  // fast laptop -- most of a phone's frame. 4px brings the count back to what
+  // the fitted vine drew. The beads stay big, because the zoom is the bake's.
+  var CHAR_SIZE_FILL = 7;         // 0.602em advance x 7 = a 4px cell
   var FLOOR     = 16;             // black point: cells dimmer than this vanish
   // ...and the bake zeroes them too (bake.py --floor 16), so raising this past
   // 16 is free but lowering it finds nothing there: re-bake to match.
@@ -1069,9 +1075,9 @@
   // bee, the nav and the ash, which all read the vine off its box and its
   // stamp, need to know nothing about any of this.
   function fillGrid() {
-    // the pitch CHAR_SIZE asks for, whole-pixel for Safari's sake as above;
-    // the bake's width fills the window whatever the cell count comes to
-    var pitch = Math.max(2, Math.round(CHAR_SIZE * CELL * advanceRatio));
+    // the pitch CHAR_SIZE_FILL asks for, whole-pixel for Safari's sake as
+    // above; the bake's width fills the window whatever the cell count comes to
+    var pitch = Math.max(2, Math.round(CHAR_SIZE_FILL * CELL * advanceRatio));
     var cellW = pitch / CELL;
     gCols = Math.max(6, Math.round(window.innerWidth / cellW));
     // the master's whole height in this grid's rows, at the width it is drawn
