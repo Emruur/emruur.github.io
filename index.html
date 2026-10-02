@@ -545,25 +545,30 @@
        20px past the top, to buy the fitted vine room beside the words and
        raise its body on the screen; the strip's framing does both now. */
     body { place-items: start end; }
-    /* 6vw, topping out at 26px past ~430. Sized against PHOTOGRAPHY, the
+    /* 6.7vw, topping out at 29px past ~430. Sized against PHOTOGRAPHY, the
        widest word, and the leaves nearest it across the whole sway: a 0.6em
        mono advance is half as wide again as VT323's 0.4em, and the 7.4vw that
-       fitted VT323 ran PHOTOGRAPHY 24px into the vine at 360. At 6vw its
-       closest approach is 13px at 360 and ~20px from 390 up. */
-    #gaze { --ls: .08em; font-size: calc(min(26px, 6vw) * var(--ui-size, 1)); }
+       fitted VT323 ran PHOTOGRAPHY 24px into the vine at 360. It was 6vw while
+       the words started 39px in; aligned to the corners at 16px, and with the
+       phone's vine framed so its leaves stand further right, there is room
+       for the words to be a step larger. */
+    #gaze { --ls: .08em; font-size: calc(min(29px, 6.7vw) * var(--ui-size, 1)); }
     /* Placed against the WINDOW, not the vine. On desktop the words hang off
        the vine's sides and have to move with it; here they are a column of
        their own, so #gaze lets go of #stack and covers the viewport instead,
-       and a left of 27px is simply that far from the window's edge, whatever the
-       vine's grid decides its width is.
+       and its left is the corners' own --pad, so the column of words starts on
+       the same line as the name above it and CONTACT below, whatever the vine's
+       grid decides its width is.
        The heights become fractions of the window rather than of the vine,
        which is 97% of it, so they barely move. Nothing between here and the
        root is transformed, so fixed really is the viewport. */
     #gaze { position: fixed; }
     /* --top-phone marks each word's MIDDLE, not its top edge (hence the
        translate), so four heights spaced evenly about 50% put the group's
-       centre on the window's: 27.5 / 42.5 / 57.5 / 72.5, 15% apart. */
-    #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px - 26px); top: var(--top-phone); transform: translateY(-50%); }
+       centre on the window's: 26.375 / 42.125 / 57.875 / 73.625, 15.75% apart --
+       spread a touch from 15% so the Projects menu clears the word under it on a
+       short phone. */
+    #gaze .w, #gaze .e { right: auto; left: clamp(16px, 2.4vw, 30px);   /* #corners --pad */ top: var(--top-phone); transform: translateY(-50%); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
@@ -585,7 +590,7 @@
     /* PROJECTS' list a step smaller than on desktop: on a phone it is
        directly under the column of nav, and at nav-adjacent size it read as
        two more nav words. */
-    #gaze .menu { font-size: calc(15px * var(--ui-size, 1)); }
+    #gaze .menu { font-size: calc(15.5px * var(--ui-size, 1)); }
   }
 </style>
 </head>
@@ -594,8 +599,8 @@
   <nav id="gaze" aria-label="Sections">
     <!-- no data-href while about.html is unfinished: the word stays, the
          click does nothing, the same as WebDesign -->
-    <button type="button" class="w" style="--top: 20%; --top-phone: 72.5%;">About</button>
-    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 57.5%;">Photography</button>
+    <button type="button" class="w" style="--top: 20%; --top-phone: 73.625%;">About</button>
+    <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 57.875%;">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
          was: the bee aims at these rects every frame and the reveal script
@@ -609,14 +614,14 @@
          bee script), so these can sit in any order and each word can carry a
          different height on a phone (--top-phone) without the bee zigzagging.
          Kept in desktop order anyway, so the source reads like the page. -->
-    <div class="drop w" style="--top: 60%; --top-phone: 42.5%;">
+    <div class="drop w" style="--top: 60%; --top-phone: 42.125%;">
       <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
       <div class="menu" id="projects-menu">
         <a class="item" href="https://theoriginlibrary.com" target="_blank" rel="noopener">Origin Library</a>
         <a class="item" href="ImaginaryGarden/index.html">Imaginary Garden</a>
       </div>
     </div>
-    <button type="button" class="e" style="--top: 80%; --top-phone: 27.5%;">WebDesign</button>
+    <button type="button" class="e" style="--top: 80%; --top-phone: 26.375%;">WebDesign</button>
   </nav>
 </div>
 
@@ -1443,6 +1448,8 @@
   var CALM    = 30;     // ...but only once it is slower than this, px/s
   var EAT_GAP = 2;      // px between the bee's nose and the strand it is eating
   var EAT_PCT = 0.25;   // how far in from the outermost strand it settles, 0..1
+  var PHONE_IN = 12;    // on a phone, px further into the vine it feeds
+  var PHONE_CLEAR = 8;  // ...and px its body keeps clear of the word, at least
   var VINE_SAMPLE = 0.12;   // seconds between re-reads of the vine's grid
   var LIFT    = 10;     // px above the label's middle
   var TURN    = 25;     // px/s of horizontal drift before it bothers to turn
@@ -1861,9 +1868,14 @@
     }
     var x = left ? edge - halfW - EAT_GAP : edge + halfW + EAT_GAP;
     // On a phone the word and the vine are on the SAME side of the bee, so a
-    // narrow gap would park it over the word's tail. Its own body clears the
-    // label first; the plant gets whatever is left.
-    if (PHONE.matches && left) x = Math.max(x, r.right + halfW + EAT_GAP);
+    // narrow gap would park it over the word's tail -- PHOTOGRAPHY reaches
+    // nearly to the leaves. So there it feeds further IN, PHONE_IN px into the
+    // fringe rather than nose-to-edge outside it, and whatever that leaves,
+    // its body clears the label by PHONE_CLEAR: more than the hover's sideways
+    // drift (SWAY_A), which with a 2px margin was enough to carry it back over
+    // the last letters while it ate. Flying past may cross a word; feeding not.
+    if (PHONE.matches && left)
+      x = Math.max(x + PHONE_IN, r.right + halfW + PHONE_CLEAR);
     return {
       x: Math.max(halfW + 4, Math.min(window.innerWidth - halfW - 4, x)),
       y: Math.max(halfH + 4, Math.min(window.innerHeight - halfH - 4, y)),
