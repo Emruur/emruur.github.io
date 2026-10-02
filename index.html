@@ -725,9 +725,20 @@
     { upto: 1, color: "var(--ink-0)" },   // the haze around the stems: recedes
     { upto: 3, color: "var(--ink-1)" },   // stems
     { upto: 5, color: "var(--ink-2)", glow: "drop-shadow(0 0 3px var(--ink-2))" },   // the duller beads
-    { upto: 6, color: "var(--ink-3)", glow: "drop-shadow(0 0 5px var(--ink-3)) drop-shadow(0 0 13px var(--ink-3))" },   // the lit ones
-    { upto: 7, color: "var(--ink-4)", glow: "drop-shadow(0 0 6px var(--bloom)) drop-shadow(0 0 17px var(--bloom)) drop-shadow(0 0 38px var(--bloom))" }   // and their cores
+    { upto: 6, color: "var(--ink-3)", glow: "drop-shadow(0 0 5px var(--ink-3)) drop-shadow(0 0 13px var(--ink-3))",
+      glowFill: "drop-shadow(0 0 5px var(--ink-3))" },   // the lit ones
+    { upto: 7, color: "var(--ink-4)", glow: "drop-shadow(0 0 6px var(--bloom)) drop-shadow(0 0 17px var(--bloom)) drop-shadow(0 0 38px var(--bloom))",
+      glowFill: "drop-shadow(0 0 6px var(--bloom)) drop-shadow(0 0 17px var(--bloom))" }   // and their cores
   ];
+  // `glowFill` is the glow on a phone, where the vine is drawn the full width
+  // of the window (fillGrid) and so fills it with lit beads -- three times
+  // the cores the fitted vine had, on twice the area, at 3x pixel density.
+  // Each drop-shadow is a blur pass over the whole layer, and the passes
+  // dropped are the two widest: the 38px haze off the cores and the 13px one
+  // off the lit beads. What stays is the halo hugging each bead, which is the
+  // part that reads as light; the far haze mostly brightened the black
+  // between them, and on a screen this full of vine there is little black left.
+  // Applied in finishGrid(), since a window can cross into or out of FILL.
 
   // The glow is a FILTER, not a text-shadow, and that is a performance
   // decision that happens to also look better. A text-shadow is blurred by
@@ -1122,6 +1133,8 @@
 
     for (var L = 0; L < pres.length; L++) {
       pres[L].style.fontSize = size + "px";
+      var glow = (FILL && BANDS[L].glowFill) || BANDS[L].glow;
+      if (glow && pres[L].style.filter !== glow) pres[L].style.filter = glow;
       pres[L].style.lineHeight = pitch + "px";
       pres[L].style.width = boxW + "px";
       pres[L].style.height = boxH + "px";
