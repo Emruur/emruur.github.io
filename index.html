@@ -669,14 +669,7 @@
   // buildGrid turns it into a row count and then sizes the cell to fill the
   // window, so on a display tall enough to exhaust the master the cell grows
   // past this and the stems thicken. That is the trade a 400-row master makes.
-  //
-  // 3.4 rather than 5 asks for more rows than the master has anywhere short of
-  // a very small window, so the whole master is drawn: about 2.2px cells where
-  // there were 3, finer beads and a finer texture, which is what a phone held
-  // close was showing up. Safari will only lay rows out on whole pixels, so
-  // that lands on a 2px pitch and a vine short of the window -- and buildGrid
-  // scales the layers up to close the gap (see FILL there).
-  var CHAR_SIZE = 3.4;            // CSS pixels per character, before fitting
+  var CHAR_SIZE = 5;              // CSS pixels per character, before fitting
   var FLOOR     = 16;             // black point: cells dimmer than this vanish
   // ...and the bake zeroes them too (bake.py --floor 16), so raising this past
   // 16 is free but lowering it finds nothing there: re-bake to match.
@@ -1033,19 +1026,8 @@
     // rounded: the vine is centred by the grid's `place-items`, and rounding
     // here would shift it half a pixel off centre for no reason.
     var boxW = gCols * size * advanceRatio, boxH = gRows * pitch;
-
-    // FILL. With a fine grid the whole-pixel pitch can leave the vine well
-    // short of the window -- 400 rows at 2px is 800px of an 873px ask -- and
-    // the next whole pixel up would overshoot by half. So the layers are laid
-    // out at the pitch and then SCALED to the size that was asked for: a
-    // uniform transform, so every layer stays on the same grid and the cell
-    // keeps its shape, only drawn at 2.18px instead of 2. The stack's box is
-    // the scaled size, which is the one thing everything that reads the vine
-    // off the screen -- bite, bee, nav, ash -- measures it by.
-    var fill = Math.min(availH / boxH, availW / boxW);
-    if (!(fill > 1)) fill = 1;
-    stack.style.width = boxW * fill + "px";
-    stack.style.height = boxH * fill + "px";
+    stack.style.width = boxW + "px";
+    stack.style.height = boxH + "px";
 
     // ...and the shape of the grid, said out loud. Two other scripts read this
     // vine off the screen -- the bee's inkEdge() and the nav's front() -- and
@@ -1061,8 +1043,6 @@
       pres[L].style.lineHeight = pitch + "px";
       pres[L].style.width = boxW + "px";
       pres[L].style.height = boxH + "px";
-      pres[L].style.transformOrigin = "0 0";
-      pres[L].style.transform = fill > 1 ? "scale(" + fill + ")" : "";
     }
   }
 
@@ -2322,9 +2302,7 @@
   // Bigger than the cell. At the vine's own size a speck is a two-pixel dot,
   // which is a bead when it sits among fifty others and nothing at all on its
   // own in the black.
-  var GLYPH     = 2.2;            // speck size, in SPECK_BASEs
-  var SPECK_BASE = 5;             // px; the vine's font size when the specks were tuned
-  var CELL_REF  = 3;              // px; the vine's cell then -- see burn()
+  var GLYPH     = 2.2;            // speck size, in the vine's font sizes
   var COLD_HALO = 0.35;           // how much glow a fully cold speck keeps
   // The flicker, and the thing that makes it ash that is BURNING rather than
   // dust that is lit. Two sines at unrelated rates per speck, so no two pulse
@@ -2447,10 +2425,7 @@
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
     var pre = stack && stack.querySelector("pre"), cs = pre && getComputedStyle(pre);
-    // NOT the vine's font size any more: the specks were tuned against the
-    // 5px font of the old 3px cell, and the finer grid would have shrunk them
-    // with it. The font family is still the vine's.
-    glyphPx = SPECK_BASE;
+    glyphPx = (cs && parseFloat(cs.fontSize)) || 4;
     var root = getComputedStyle(document.documentElement);
     inks = HEAT.map(function (h) { return root.getPropertyValue(h.ink).trim() || "#888"; });
     // resizing the backing store resets the context, font and all
@@ -2580,11 +2555,6 @@
     var r = stackBox();
     if (!r.width || !r.height || !e.nc) return;
     var cw = r.width / e.cols, ch = r.height / e.rows, t = clock;
-    // A halo per core CELL, so a bead's flare is the sum over the cells it
-    // covers -- and a finer grid covers it in more of them. Scaled by cell
-    // area against the grid it was tuned on, a bead burns as bright at any
-    // cell size.
-    var per = up * (cw * ch) / (CELL_REF * CELL_REF);
     for (var i = 0; i < e.nc; i++) {
       var idx = e.cores[i], row = (idx / e.cols) | 0, col = idx - row * e.cols;
       var cx = r.left + (col + 0.5) * cw, cy = r.top + (row + 0.5) * ch;
@@ -2594,7 +2564,7 @@
       var pulse = n * n;
       if (pulse < 0.04) continue;
       var rad = haloR * BURN_R * (1 + BURN_SWELL * pulse);
-      ctx.globalAlpha = Math.min(1, BURN * pulse * per);
+      ctx.globalAlpha = BURN * pulse * up;
       ctx.drawImage(halo, cx - rad, cy - rad, rad * 2, rad * 2);
     }
     ctx.globalAlpha = 1;
