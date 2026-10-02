@@ -554,7 +554,7 @@
     /* Placed against the WINDOW, not the vine. On desktop the words hang off
        the vine's sides and have to move with it; here they are a column of
        their own, so #gaze lets go of #stack and covers the viewport instead,
-       and a left of 3rem+5px is simply that far from the window's edge, whatever the
+       and a left of 27px is simply that far from the window's edge, whatever the
        vine's grid decides its width is.
        The heights become fractions of the window rather than of the vine,
        which is 97% of it, so they barely move. Nothing between here and the
@@ -563,7 +563,7 @@
     /* --top-phone marks each word's MIDDLE, not its top edge (hence the
        translate), so four heights spaced evenly about 50% put the group's
        centre on the window's: 27.5 / 42.5 / 57.5 / 72.5, 15% apart. */
-    #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px - 14px); top: var(--top-phone); transform: translateY(-50%); }
+    #gaze .w, #gaze .e { right: auto; left: calc(3rem + 5px - 26px); top: var(--top-phone); transform: translateY(-50%); }
     #corners .br { display: none; }
     /* ...and the three that stay take some of the room it leaves: at the 2vw
        lines above they all sat on their 14/16px floors, small enough on a
@@ -594,7 +594,7 @@
   <nav id="gaze" aria-label="Sections">
     <!-- no data-href while about.html is unfinished: the word stays, the
          click does nothing, the same as WebDesign -->
-    <button type="button" class="w" style="--top: 20%; --top-phone: 42.5%;">About</button>
+    <button type="button" class="w" style="--top: 20%; --top-phone: 72.5%;">About</button>
     <button type="button" class="e" data-href="photography.html" style="--top: 40%; --top-phone: 57.5%;">Photography</button>
     <!-- The one word that branches. The placement moves to a wrapper and the
          button goes static inside it, so the button's BOX is exactly where it
@@ -609,7 +609,7 @@
          bee script), so these can sit in any order and each word can carry a
          different height on a phone (--top-phone) without the bee zigzagging.
          Kept in desktop order anyway, so the source reads like the page. -->
-    <div class="drop w" style="--top: 60%; --top-phone: 72.5%;">
+    <div class="drop w" style="--top: 60%; --top-phone: 42.5%;">
       <button type="button" aria-expanded="false" aria-controls="projects-menu">Projects<i class="caret" aria-hidden="true"></i></button>
       <div class="menu" id="projects-menu">
         <a class="item" href="https://theoriginlibrary.com" target="_blank" rel="noopener">Origin Library</a>
