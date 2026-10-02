@@ -2316,6 +2316,27 @@
   var FLARE_R   = 0.35;           // extra halo radius at the top of a flare, as a fraction
   var REKINDLE  = 0.8;            // pulse above which a speck shows one step hotter
   var HALO_MIN  = 0.45;           // the halo's floor between flares, as a fraction of its peak
+
+  // The same flicker on the vine itself: every core cell -- the vine's
+  // brightest band -- carries a halo on this canvas that flares and dims, so
+  // the beads the ash comes off are visibly burning too.
+  //
+  // Here and not in the vine's own repaint, which could flicker the glyphs
+  // themselves but only by rewriting the text, and so re-rastering and
+  // re-blurring the glow layers, on EVERY frame -- giving up the skipped
+  // repaints the page leans on to stay cool. This canvas is redrawn every frame
+  // regardless; a hundred-odd sprites more is nothing to it.
+  //
+  // The pulse is a field over the SCREEN rather than a phase per cell. The
+  // vine sways, so a bead is a different cell from one repaint to the next,
+  // and a per-cell phase would make it jump between rhythms as it moved. Three
+  // plane waves at unrelated angles and rates interfere into patches about a
+  // bead across that flare and die irregularly, and a bead drifting with the
+  // sway just carries on through the patch it is in.
+  var BURN      = 0.35;           // a core's halo at the top of a flare, as globalAlpha (was 0.55)
+  var BURN_R    = 1.1;            // its radius, in speck-halo radii (was 1.25)
+  var BURN_SWELL = 0.3;           // extra radius at the top of a flare (was 0.45)
+  var BURN_IN   = 1.2;            // seconds to come up, counted from the first speck shed
   var LIFT      = 2;              // px/s upward at release -- ash is warm
   var WOBBLE    = 8;              // px/s^2 of curl, so nothing travels in a line
   var DRAG      = 0.15;           // per second
@@ -2437,7 +2458,7 @@
   //
   // The same pass picks out the lit cells inside the bee's bite, if there is
   // one, into a list of their own for the extra shedding to draw from.
-  var seen = null, view = null, hist = null, bitten = null;
+  var seen = null, view = null, hist = null, bitten = null, cores = null;
   function embers() {
     var e = window.VINE_EMBERS;
     if (!gaze.classList.contains("grown") || !e || !e.cells) return null;
@@ -2447,13 +2468,17 @@
     if (n <= 0 || cols <= 0 || rows <= 0 || n > e.cells.length) return null;
     if (!hist || hist.length !== cols) hist = new Int32Array(cols);
     else hist.fill(0);
-    if (!bitten || bitten.length < e.cells.length) bitten = new Int32Array(e.cells.length);
-    var b = e.bite, nb = 0, amp = 0;
+    if (!bitten || bitten.length < e.cells.length) {
+      bitten = new Int32Array(e.cells.length);
+      cores = new Int32Array(e.cells.length);
+    }
+    var b = e.bite, nb = 0, nc = 0, amp = 0;
     var bc = b && +b.col, br = b && +b.row, rc = b && +b.rc, rr = b && +b.rr;
     if (b && isFinite(bc) && isFinite(br) && rc > 0 && rr > 0 && +b.amp > 0) amp = +b.amp;
     for (var i = 0; i < n; i++) {
       var idx = e.cells[i] >> 1, row = (idx / cols) | 0, col = idx - row * cols;
       hist[col]++;
+      if (e.cells[i] & 1) cores[nc++] = idx;
       if (amp) {
         var dc = (col + 0.5 - bc) / rc, dr = (row + 0.5 - br) / rr;
         if (dc * dc + dr * dr < 1) bitten[nb++] = e.cells[i];
@@ -2462,7 +2487,7 @@
     var axis = 0, run = 0;
     while (axis < cols - 1 && (run += hist[axis]) < n / 2) axis++;
     view = { cells: e.cells, n: n, cols: cols, rows: rows, axis: axis + 0.5,
-             bitten: bitten, nb: nb, amp: nb ? amp : 0 };
+             bitten: bitten, nb: nb, amp: nb ? amp : 0, cores: cores, nc: nc };
     return view;
   }
 
@@ -2490,6 +2515,7 @@
     var mid = r.left + e.axis * cw, dir = px > mid ? 1 : -1;
     if (Math.abs(px - mid) < cw * 2) dir = Math.random() < 0.5 ? -1 : 1;
     var k = alive++;
+    if (litAt < 0) litAt = clock;
     x[k] = px; y[k] = py;
     x0[k] = px;
     gone[k] = (dir > 0 ? W - px : px) * rand(FADE);
@@ -2522,7 +2548,30 @@
     return u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u);
   }
 
+  // The cores' flicker -- see BURN. Off until the first speck has actually
+  // left the vine (litAt, stamped in spawn), then up over BURN_IN, so the
+  // vine catches as the first ash leaves it and not before.
+  function burn(e, up) {
+    var r = stackBox();
+    if (!r.width || !r.height || !e.nc) return;
+    var cw = r.width / e.cols, ch = r.height / e.rows, t = clock;
+    for (var i = 0; i < e.nc; i++) {
+      var idx = e.cores[i], row = (idx / e.cols) | 0, col = idx - row * e.cols;
+      var cx = r.left + (col + 0.5) * cw, cy = r.top + (row + 0.5) * ch;
+      var n = 0.5 + 0.2 * Math.sin(cx * 0.081 + cy * 0.047 + t * 3.7) +
+                    0.17 * Math.sin(cx * -0.059 + cy * 0.093 + t * 5.9) +
+                    0.13 * Math.sin(cx * 0.023 + cy * -0.071 + t * 8.3);
+      var pulse = n * n;
+      if (pulse < 0.04) continue;
+      var rad = haloR * BURN_R * (1 + BURN_SWELL * pulse);
+      ctx.globalAlpha = BURN * pulse * up;
+      ctx.drawImage(halo, cx - rad, cy - rad, rad * 2, rad * 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   var last = 0, clock = 0, shedFor = 0, debt = 0, biteDebt = 0, dirty = false, running = false;
+  var litAt = -1;                 // clock at the first speck of this shedding, or -1
 
   // The loop only exists while there is ash to move or a vine to shed it.
   // Once the last speck is off the screen and the vine is not shedding --
@@ -2550,12 +2599,12 @@
       while (debt >= 1) { spawn(e, false); debt -= 1; }
       biteDebt += BITE_RATE * e.amp * ramp * dt;
       while (biteDebt >= 1) { spawn(e, true); biteDebt -= 1; }
-    } else debt = biteDebt = 0;
+    } else { debt = biteDebt = 0; litAt = -1; }
 
-    if (!alive) {
-      // nothing in the air: clear once, and if nothing is coming either, stop
+    if (!alive && !e) {
+      // nothing in the air and nothing burning: clear once, and stop
       if (dirty) { ctx.clearRect(0, 0, W, H); dirty = false; }
-      if (e) requestAnimationFrame(tick); else running = false;
+      running = false;
       return;
     }
     requestAnimationFrame(tick);
@@ -2576,6 +2625,7 @@
 
     ctx.clearRect(0, 0, W, H);
     dirty = true;
+    if (e && litAt >= 0) burn(e, Math.min(1, (clock - litAt) / BURN_IN));
     for (k = 0; k < alive; k++) {
       var h = Math.max(0, heat0[k] * (1 - age[k] / cool[k])), s = 0;
       while (h <= HEAT[s].above) s++;
